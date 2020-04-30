@@ -19,45 +19,75 @@
 
 #include <iostream>
 
+namespace eprosima {
+namespace uxr {
+namespace util {
+
+using Interface = std::pair<std::string, dds::xrce::TransportAddress>;
+using InterfacesContainer = std::map<Interface::first_type, Interface::second_type>;
+
+template<typename E>
+InterfacesContainer get_transport_interfaces(
+    uint16_t agent_port);
+
+} // namespace util
+} // namespace uxr
+} // namespace eprosima
+
+inline
+std::ostream & operator<<(std::ostream & os, dds::xrce::TransportAddressMedium const & address)
+{
+    os << int(address.address().at(0)) << "."
+       << int(address.address().at(1)) << "."
+       << int(address.address().at(2)) << "."
+       << int(address.address().at(3)) << ":"
+       << address.port();
+    return os;
+}
+
+inline
+std::ostream & operator<<(std::ostream & os, dds::xrce::TransportAddressLarge const & address)
+{
+    os << std::hex << "["
+       << int(address.address().at(0))
+       << int(address.address().at(1))
+       << ":"
+       << int(address.address().at(2))
+       << int(address.address().at(3))
+       << ":"
+       << int(address.address().at(4))
+       << int(address.address().at(5))
+       << ":"
+       << int(address.address().at(6))
+       << int(address.address().at(7))
+       << ":"
+       << int(address.address().at(8))
+       << int(address.address().at(9))
+       << ":"
+       << int(address.address().at(10))
+       << int(address.address().at(11))
+       << ":"
+       << int(address.address().at(12))
+       << int(address.address().at(13))
+       << ":"
+       << int(address.address().at(14))
+       << int(address.address().at(15))
+       << "]:" << std::dec
+       << address.port();
+    return os;
+}
+
 inline
 std::ostream & operator<<(std::ostream & os, dds::xrce::TransportAddress const & address)
 {
     switch (address._d())
     {
         case dds::xrce::ADDRESS_FORMAT_MEDIUM:
-            os << int(address.medium_locator().address().at(0)) << "."
-               << int(address.medium_locator().address().at(1)) << "."
-               << int(address.medium_locator().address().at(2)) << "."
-               << int(address.medium_locator().address().at(3)) << ":"
-               << address.medium_locator().port();
+            os << address.medium_locator();
             break;
         case dds::xrce::ADDRESS_FORMAT_LARGE:
-            os << std::hex << "["
-               << int(address.large_locator().address().at(0))
-               << int(address.large_locator().address().at(1))
-               << ":"
-               << int(address.large_locator().address().at(2))
-               << int(address.large_locator().address().at(3))
-               << ":"
-               << int(address.large_locator().address().at(4))
-               << int(address.large_locator().address().at(5))
-               << ":"
-               << int(address.large_locator().address().at(6))
-               << int(address.large_locator().address().at(7))
-               << ":"
-               << int(address.large_locator().address().at(8))
-               << int(address.large_locator().address().at(9))
-               << ":"
-               << int(address.large_locator().address().at(10))
-               << int(address.large_locator().address().at(11))
-               << ":"
-               << int(address.large_locator().address().at(12))
-               << int(address.large_locator().address().at(13))
-               << ":"
-               << int(address.large_locator().address().at(14))
-               << int(address.large_locator().address().at(15))
-               << "]:" << std::dec
-               << address.large_locator().port();
+            os << address.large_locator();
+            break;
         default:
             break;
     } 

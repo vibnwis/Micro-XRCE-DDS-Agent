@@ -30,96 +30,81 @@ namespace eprosima {
 namespace uxr {
 namespace util {
 
-template<typename E>
-void get_transport_interfaces(
-    uint16_t agent_port,
-    std::vector<dds::xrce::TransportAddress>& transport_addresses);
-
 template<>
 inline
-void get_transport_interfaces<IPv4EndPoint>(
-    uint16_t agent_port,
-    std::vector<dds::xrce::TransportAddress>& transport_addresses)
+InterfacesContainer get_transport_interfaces<IPv4EndPoint>(
+    uint16_t agent_port)
 {
+    InterfacesContainer interfaces{};
     struct ifaddrs* ifaddr;
     struct ifaddrs* ptr;
 
-    transport_addresses.clear();
+    interfaces.clear();
     if (-1 != getifaddrs(&ifaddr))
     {
         for (ptr = ifaddr; ptr != nullptr; ptr = ptr->ifa_next)
         {
             if (AF_INET == ptr->ifa_addr->sa_family)
             {
-                dds::xrce::TransportAddressMedium medium_locator;
-                medium_locator.port(agent_port);
-                medium_locator.address(
-                    {uint8_t(ptr->ifa_addr->sa_data[2]),
-                     uint8_t(ptr->ifa_addr->sa_data[3]),
-                     uint8_t(ptr->ifa_addr->sa_data[4]),
-                     uint8_t(ptr->ifa_addr->sa_data[5])});
-                transport_addresses.emplace_back();
-                transport_addresses.back().medium_locator(medium_locator);
+                dds::xrce::TransportAddressMedium address_medium;
+                address_medium.port(agent_port);
+                const sockaddr_in* addr = reinterpret_cast<sockaddr_in*>(ptr->ifa_addr);
+                std::memcpy(
+                    address_medium.address().data(),
+                    &addr->sin_addr.s_addr,
+                    address_medium.address().size());
+                dds::xrce::TransportAddress address;
+                address.medium_locator(address_medium);
+                interfaces.emplace(ptr->ifa_name, address);
 
                 UXR_AGENT_LOG_TRACE(
                     UXR_DECORATE_WHITE("interface found"),
                     "address: {}",
-                    transport_addresses.back()
+                    address
                 );
             }
         }
     }
     freeifaddrs(ifaddr);
+    return interfaces;
 }
 
 template<>
 inline
-void get_transport_interfaces<IPv6EndPoint>(
-    uint16_t agent_port,
-    std::vector<dds::xrce::TransportAddress>& transport_addresses)
+InterfacesContainer get_transport_interfaces<IPv6EndPoint>(
+    uint16_t agent_port)
 {
+    InterfacesContainer interfaces{};
     struct ifaddrs* ifaddr;
     struct ifaddrs* ptr;
 
-    transport_addresses.clear();
+    interfaces.clear();
     if (-1 != getifaddrs(&ifaddr))
     {
         for (ptr = ifaddr; ptr != nullptr; ptr = ptr->ifa_next)
         {
             if (AF_INET6 == ptr->ifa_addr->sa_family)
             {
-                dds::xrce::TransportAddressLarge large_locator;
-                large_locator.port(agent_port);
+                dds::xrce::TransportAddressLarge address_large;
+                address_large.port(agent_port);
                 struct sockaddr_in6* addr = reinterpret_cast<sockaddr_in6*>(ptr->ifa_addr);
-                large_locator.address(
-                    {addr->sin6_addr.s6_addr[0],
-                     addr->sin6_addr.s6_addr[1],
-                     addr->sin6_addr.s6_addr[2],
-                     addr->sin6_addr.s6_addr[3],
-                     addr->sin6_addr.s6_addr[4],
-                     addr->sin6_addr.s6_addr[5],
-                     addr->sin6_addr.s6_addr[6],
-                     addr->sin6_addr.s6_addr[7],
-                     addr->sin6_addr.s6_addr[8],
-                     addr->sin6_addr.s6_addr[9],
-                     addr->sin6_addr.s6_addr[10],
-                     addr->sin6_addr.s6_addr[11],
-                     addr->sin6_addr.s6_addr[12],
-                     addr->sin6_addr.s6_addr[13],
-                     addr->sin6_addr.s6_addr[14],
-                     addr->sin6_addr.s6_addr[15]});
-                transport_addresses.emplace_back();
-                transport_addresses.back().large_locator(large_locator);
+                std::memcpy(
+                    address_large.address().data(),
+                    &addr->sin6_addr.s6_addr,
+                    address_large.address().size());
+                dds::xrce::TransportAddress address;
+                address.large_locator() = address_large;
 
                 UXR_AGENT_LOG_TRACE(
                     UXR_DECORATE_WHITE("interface found"),
                     "address: {}",
-                    transport_addresses.back()
+                    address
                 );
             }
         }
     }
     freeifaddrs(ifaddr);
+    return interfaces;
 }
 
 } // namespace util

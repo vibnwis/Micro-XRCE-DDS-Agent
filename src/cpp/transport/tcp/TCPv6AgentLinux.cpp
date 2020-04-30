@@ -202,9 +202,10 @@ bool TCPv6Agent::fini()
 bool TCPv6Agent::init_discovery(
         uint16_t discovery_port)
 {
-    std::vector<dds::xrce::TransportAddress> transport_addresses;
-    util::get_transport_interfaces<IPv6EndPoint>(this->agent_port_, transport_addresses);
-    return discovery_server_.run(discovery_port, transport_addresses);
+//    std::vector<dds::xrce::TransportAddress> transport_addresses;
+//    util::get_transport_interfaces<IPv6EndPoint>(this->agent_port_, transport_addresses);
+//    return discovery_server_.run(discovery_port, transport_addresses);
+    return false;
 }
 
 bool TCPv6Agent::fini_discovery()
