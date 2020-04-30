@@ -28,6 +28,7 @@
 #include <uxr/agent/transport/serial/TermiosAgentLinux.hpp>
 #include <uxr/agent/transport/serial/PseudoTerminalAgentLinux.hpp>
 #include <uxr/agent/transport/serial/baud_rate_table_linux.h>
+#include <uxr/agent/transport/util/InterfaceLinux.hpp>
 
 #include <termios.h>
 #include <fcntl.h>
@@ -292,10 +293,16 @@ class UDPv4Subcommand : public ServerSubcommand
 public:
     UDPv4Subcommand(CLI::App& app)
         : ServerSubcommand{app, "udp4", "Launch a UDP/IPv4 server", common_opts_}
-        , cli_opt_{cli_subcommand_->add_option("-p,--port", port_, "Select the port")}
+        , interfaces_{util::get_transport_interfaces<IPv4EndPoint>(0)}
+        , interface_names_{get_interfaces_names()}
+        , selected_interface_{"any"}
+        , cli_interface_opt_{
+            cli_subcommand_->add_set(
+                "-i,--interface", selected_interface_, interface_names_, "Select an interface", true)}
+        , cli_port_opt_{cli_subcommand_->add_option("-p,--port", port_, "Select the port")}
         , common_opts_{*cli_subcommand_}
     {
-        cli_opt_->required(true);
+        cli_port_opt_->required(true);
     }
 
     ~UDPv4Subcommand() final = default;
@@ -303,7 +310,18 @@ public:
 private:
     void launch_server()
     {
-        server_.reset(new eprosima::uxr::UDPv4Agent(port_, common_opts_.middleware_opt_.get_kind()));
+        if ("any" == selected_interface_)
+        {
+            server_.reset(new eprosima::uxr::UDPv4Agent(port_, common_opts_.middleware_opt_.get_kind()));
+        }
+        else
+        {
+            auto it = interfaces_.find(selected_interface_);
+            (*it).second.medium_locator().port() = port_;
+            server_.reset(new eprosima::uxr::UDPv4Agent(
+                (*it).second.medium_locator(), common_opts_.middleware_opt_.get_kind()));
+        }
+
         if (server_->start())
         {
 #ifdef UAGENT_DISCOVERY_PROFILE
@@ -332,10 +350,24 @@ private:
         }
     }
 
+    std::set<std::string> get_interfaces_names() const
+    {
+        std::set<std::string> names{"any"};
+        for (auto&& i : interfaces_)
+        {
+            names.emplace(i.first);
+        }
+        return names;
+    }
+
 private:
     std::unique_ptr<eprosima::uxr::UDPv4Agent> server_;
+    util::InterfacesContainer interfaces_;
+    std::set<std::string> interface_names_;
+    std::string selected_interface_;
     uint16_t port_;
-    CLI::Option* cli_opt_;
+    CLI::Option* cli_interface_opt_;
+    CLI::Option* cli_port_opt_;
     CommonOpts common_opts_;
 };
 

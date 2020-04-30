@@ -37,7 +37,25 @@ UDPv4Agent::UDPv4Agent(
     : Server<IPv4EndPoint>{middleware_kind}
     , poll_fd_{-1, 0, 0}
     , buffer_{0}
-    , agent_port_{agent_port}
+    , agent_addr_{}
+#ifdef UAGENT_DISCOVERY_PROFILE
+    , discovery_server_{*processor_}
+#endif
+#ifdef UAGENT_P2P_PROFILE
+    , agent_discoverer_{*this}
+#endif
+{
+    agent_addr_.address() = {0, 0, 0, 0};
+    agent_addr_.port() = agent_port;
+}
+
+UDPv4Agent::UDPv4Agent(
+        const dds::xrce::TransportAddressMedium& agent_addr,
+        Middleware::Kind middleware_kind)
+    : Server<IPv4EndPoint>{middleware_kind}
+    , poll_fd_{-1, 0, 0}
+    , buffer_{0}
+    , agent_addr_{agent_addr}
 #ifdef UAGENT_DISCOVERY_PROFILE
     , discovery_server_{*processor_}
 #endif
@@ -72,8 +90,8 @@ bool UDPv4Agent::init()
         struct sockaddr_in address{};
 
         address.sin_family = AF_INET;
-        address.sin_port = htons(agent_port_);
-        address.sin_addr.s_addr = INADDR_ANY;
+        address.sin_port = htons(agent_addr_.port());
+        address.sin_addr.s_addr = (reinterpret_cast<struct in_addr*>(agent_addr_.address().data()))->s_addr;
         memset(address.sin_zero, '\0', sizeof(address.sin_zero));
 
         if (-1 != bind(poll_fd_.fd, reinterpret_cast<struct sockaddr*>(&address), sizeof(address)))
@@ -84,19 +102,19 @@ bool UDPv4Agent::init()
             UXR_AGENT_LOG_DEBUG(
                 UXR_DECORATE_GREEN("port opened"),
                 "port: {}",
-                agent_port_);
+                agent_addr_.port());
 
             UXR_AGENT_LOG_INFO(
                 UXR_DECORATE_GREEN("running..."),
-                "port: {}",
-                agent_port_);
+                "address: \"{}\"",
+                agent_addr_);
         }
         else
         {
             UXR_AGENT_LOG_ERROR(
                 UXR_DECORATE_RED("bind error"),
                 "port: {}, errno: {}",
-                agent_port_, errno);
+                agent_addr_.port(), errno);
         }
     }
     else
@@ -104,7 +122,7 @@ bool UDPv4Agent::init()
         UXR_AGENT_LOG_ERROR(
             UXR_DECORATE_RED("socket error"),
             "port: {}, errno: {}",
-            agent_port_, errno);
+            agent_addr_.port(), errno);
     }
 
     return rv;
@@ -125,14 +143,14 @@ bool UDPv4Agent::fini()
         UXR_AGENT_LOG_INFO(
             UXR_DECORATE_GREEN("server stopped"),
             "port: {}",
-            agent_port_);
+            agent_addr_.port());
     }
     else
     {
         UXR_AGENT_LOG_ERROR(
             UXR_DECORATE_RED("socket error"),
             "port: {}, errno: {}",
-            agent_port_, errno);
+            agent_addr_.port(), errno);
     }
     return rv;
 }

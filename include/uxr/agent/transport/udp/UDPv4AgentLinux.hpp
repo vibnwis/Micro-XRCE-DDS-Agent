@@ -41,6 +41,10 @@ public:
             uint16_t port,
             Middleware::Kind middleware_kind);
 
+    UDPv4Agent(
+            const dds::xrce::TransportAddressMedium& agent_addr,
+            Middleware::Kind middleware_kind);
+
     ~UDPv4Agent() final;
 
 private:
@@ -75,7 +79,7 @@ private:
 private:
     struct pollfd poll_fd_;
     uint8_t buffer_[UINT16_MAX];
-    uint16_t agent_port_;
+    dds::xrce::TransportAddressMedium agent_addr_;
 #ifdef UAGENT_DISCOVERY_PROFILE
     DiscoveryServerLinux<IPv4EndPoint> discovery_server_;
 #endif
