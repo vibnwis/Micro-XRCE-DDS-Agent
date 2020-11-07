@@ -22,6 +22,7 @@
 namespace eprosima {
 namespace uxr {
 
+extern template class Processor<CANEndPoint>;
 extern template class Processor<IPv4EndPoint>;
 extern template class Processor<IPv6EndPoint>;
 
@@ -69,6 +70,8 @@ void DiscoveryServer<EndPoint>::discovery_loop()
     }
 }
 
+
+template class DiscoveryServer<CANEndPoint>;
 template class DiscoveryServer<IPv4EndPoint>;
 template class DiscoveryServer<IPv6EndPoint>;
 

@@ -21,6 +21,7 @@
 #include <uxr/agent/transport/tcp/TCPv4AgentWindows.hpp>
 #include <uxr/agent/transport/tcp/TCPv6AgentWindows.hpp>
 #else
+#include <uxr/agent/transport/udp/CANAgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv4AgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv6AgentLinux.hpp>
 #include <uxr/agent/transport/tcp/TCPv4AgentLinux.hpp>
@@ -290,7 +291,62 @@ protected:
 
 
 /*************************************************************************************************
- * UDPv6 Subcommand
+ * CAN Subcommand
+ *************************************************************************************************/
+class CANSubcommand : public ServerSubcommand
+{
+public:
+	CANSubcommand(CLI::App& app)
+        : ServerSubcommand{app, "can", "Launch a CAN server", common_opts_}
+        , cli_opt_{cli_subcommand_->add_option("-p,--port", port_, "Select the port")}
+        , common_opts_{*cli_subcommand_}
+    {
+        cli_opt_->required(true);
+    }
+
+    ~CANSubcommand() final = default;
+
+private:
+    void launch_server()
+    {
+        server_.reset(new eprosima::uxr::CANAgent(port_, common_opts_.middleware_opt_.get_kind()));
+        if (server_->start())
+        {
+#ifdef UAGENT_DISCOVERY_PROFILE
+            if (opts_ref_.discovery_opt_.is_enable())
+            {
+                server_->enable_discovery(opts_ref_.discovery_opt_.get_port());
+            }
+#endif
+
+#ifdef UAGENT_P2P_PROFILE
+            if ((eprosima::uxr::Middleware::Kind::CED == opts_ref_.middleware_opt_.get_kind())
+                && opts_ref_.p2p_opt_.is_enable())
+            {
+                server_->enable_p2p(opts_ref_.p2p_opt_.get_port());
+            }
+#endif
+            if (opts_ref_.reference_opt_.is_enable())
+            {
+                server_->load_config_file(opts_ref_.reference_opt_.get_file());
+            }
+
+            if (opts_ref_.verbose_opt_.is_enable())
+            {
+                server_->set_verbose_level(opts_ref_.verbose_opt_.get_level());
+            }
+        }
+    }
+
+private:
+    std::unique_ptr<eprosima::uxr::CANAgent> server_;
+    uint16_t port_;
+    CLI::Option* cli_opt_;
+    CommonOpts common_opts_;
+};
+
+/*************************************************************************************************
+ * UDPv4 Subcommand
  *************************************************************************************************/
 class UDPv4Subcommand : public ServerSubcommand
 {

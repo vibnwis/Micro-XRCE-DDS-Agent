@@ -27,6 +27,7 @@
 #include <uxr/agent/transport/tcp/TCPv4AgentWindows.hpp>
 #include <uxr/agent/transport/tcp/TCPv6AgentWindows.hpp>
 #else
+#include <uxr/agent/transport/udp/CANAgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv4AgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv6AgentLinux.hpp>
 #include <uxr/agent/transport/tcp/TCPv4AgentLinux.hpp>
@@ -52,6 +53,7 @@ namespace agent {
 enum class TransportKind
 {
     INVALID,
+	CAN,
     UDP4,
     UDP6,
     TCP4,
@@ -529,6 +531,46 @@ private:
     Argument<uint16_t> port_;
 };
 
+*************************************************************************************************
+ * Specific arguments for CAN transports
+ *************************************************************************************************/
+template <typename AgentType>
+class CANArgs
+{
+public:
+	 CANArgs()
+        : port_("-p", "--port")
+    {
+    }
+
+    bool parse(
+            int argc,
+            char** argv)
+    {
+        ParseResult parse_port = port_.parse_argument(argc, argv);
+        if (ParseResult::VALID != parse_port)
+        {
+            std::cerr << "Warning: '--port <value>' is required" << std::endl;
+        }
+        return (ParseResult::VALID == parse_port ? true : false);
+    }
+
+    uint16_t port() const
+    {
+        return port_.value();
+    }
+
+    const std::string get_help() const
+    {
+        std::stringstream ss;
+        ss << "    " << port_.get_help() << std::endl;
+        return ss.str();
+    }
+
+private:
+    Argument<uint16_t> port_;
+};
+
 #ifndef _WIN32
 /*************************************************************************************************
  * Specific arguments for pseudoterminal transports
@@ -628,6 +670,7 @@ public:
         , argv_(argv)
         , common_args_()
         , ip_args_()
+    	, can_args_()
 #ifndef _WIN32
         , serial_args_()
         , pseudoterminal_args_()
@@ -652,6 +695,11 @@ public:
         bool result = common_result.first;
         switch (transport_kind_)
         {
+        	case TransportKind::CAN:
+        	{
+        		result &= can_args_.parse(argc_, argv_);
+        	    break;
+        	}
             case TransportKind::UDP4:
             case TransportKind::UDP6:
             case TransportKind::TCP4:
@@ -696,6 +744,21 @@ public:
             return false;
         }
     }
+
+    bool launch_can_agent()
+       {
+           agent_server_.reset(new AgentType(can_args_.port(), utils::get_mw_kind(common_args_.middleware())));
+           if (agent_server_->start())
+           {
+               common_args_.apply_actions(agent_server_);
+               return true;
+           }
+           else
+           {
+               std::cerr << "Error while starting CAN agent!" << std::endl;
+               return false;
+           }
+       }
 
 #ifndef _WIN32
     bool launch_termios_agent()
@@ -790,6 +853,7 @@ private:
     char** argv_;
     CommonArgs<AgentType> common_args_;
     IPvXArgs<AgentType> ip_args_;
+    CANArgs<AgentType> can_args_;
 #ifndef _WIN32
     SerialArgs<AgentType> serial_args_;
     PseudoTerminalArgs<AgentType> pseudoterminal_args_;

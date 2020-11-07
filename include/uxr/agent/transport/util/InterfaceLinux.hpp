@@ -16,6 +16,7 @@
 #define UXR_AGENT_TRANSPORT_UTIL_INTERFACELINUX_HPP_
 
 #include <uxr/agent/transport/util/Interface.hpp>
+#include <uxr/agent/transport/endpoint/CANEndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv6EndPoint.hpp>
 #include <uxr/agent/logger/Logger.hpp>
@@ -34,6 +35,44 @@ template<typename E>
 void get_transport_interfaces(
     uint16_t agent_port,
     std::vector<dds::xrce::TransportAddress>& transport_addresses);
+
+template<>
+inline
+void get_transport_interfaces<CANEndPoint>(
+    uint16_t agent_port,
+    std::vector<dds::xrce::TransportAddress>& transport_addresses)
+{
+    struct ifaddrs* ifaddr;
+    struct ifaddrs* ptr;
+
+    transport_addresses.clear();
+    if (-1 != getifaddrs(&ifaddr))
+    {
+        for (ptr = ifaddr; ptr != nullptr; ptr = ptr->ifa_next)
+        {
+            if (AF_INET == ptr->ifa_addr->sa_family)
+            {
+                dds::xrce::TransportAddressMedium medium_locator;
+                medium_locator.port(agent_port);
+                medium_locator.address(
+                    {uint8_t(ptr->ifa_addr->sa_data[2]),
+                     uint8_t(ptr->ifa_addr->sa_data[3]),
+                     uint8_t(ptr->ifa_addr->sa_data[4]),
+                     uint8_t(ptr->ifa_addr->sa_data[5])});
+                transport_addresses.emplace_back();
+                transport_addresses.back().medium_locator(medium_locator);
+
+                UXR_AGENT_LOG_TRACE(
+                    UXR_DECORATE_WHITE("interface found"),
+                    "address: {}",
+                    transport_addresses.back()
+                );
+            }
+        }
+    }
+    freeifaddrs(ifaddr);
+}
+
 
 template<>
 inline

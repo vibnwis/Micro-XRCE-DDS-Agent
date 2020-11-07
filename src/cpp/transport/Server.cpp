@@ -18,6 +18,7 @@
 #include <uxr/agent/Root.hpp>
 #include <uxr/agent/logger/Logger.hpp>
 
+#include <uxr/agent/transport/endpoint/CANEndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv6EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/SerialEndPoint.hpp>
@@ -29,6 +30,7 @@
 namespace eprosima {
 namespace uxr {
 
+extern template class Processor<CANEndPoint>;
 extern template class Processor<IPv4EndPoint>;
 extern template class Processor<IPv6EndPoint>;
 extern template class Processor<SerialEndPoint>;
@@ -259,6 +261,7 @@ void Server<EndPoint>::error_handler_loop()
     }
 }
 
+template class Server<CANEndPoint>;
 template class Server<IPv4EndPoint>;
 template class Server<IPv6EndPoint>;
 template class Server<SerialEndPoint>;

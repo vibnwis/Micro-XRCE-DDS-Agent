@@ -16,6 +16,7 @@
 #define UXR_AGENT_TRANSPORT_DISCOVERY_SERVER_HPP_
 
 #include <uxr/agent/message/Packet.hpp>
+#include <uxr/agent/transport/endpoint/CANEndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv6EndPoint.hpp>
 

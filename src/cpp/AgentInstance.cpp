@@ -20,6 +20,7 @@ namespace uxr {
 AgentInstance::AgentInstance()
 #ifdef UAGENT_CLI_PROFILE
     : app_("eProsima Micro XRCE-DDS Agent")
+	, CAN_subcmd_(app_)
     , udpv4_subcmd_(app_)
     , udpv6_subcmd_(app_)
     , tcpv4_subcmd_(app_)
@@ -91,6 +92,15 @@ bool AgentInstance::create(
 
     switch (valid_transport)
     {
+    	case agent::TransportKind::CAN:
+            {
+                agent_thread_ = std::move(agent::create_agent_thread<CANAgent>(argc, argv, valid_transport,
+#ifndef _WIN32
+                    &signals_
+#endif  // _WIN32
+                    ));
+                break;
+        }
         case agent::TransportKind::UDP4:
         {
             agent_thread_ = std::move(agent::create_agent_thread<UDPv4Agent>(argc, argv, valid_transport,

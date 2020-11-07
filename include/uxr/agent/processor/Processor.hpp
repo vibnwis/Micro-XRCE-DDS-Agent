@@ -34,6 +34,7 @@ namespace uxr {
 
 class Root;
 class IPv4EndPoint;
+class CANEndPoint;
 
 template<typename EndPoint>
 class Server;

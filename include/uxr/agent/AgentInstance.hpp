@@ -80,6 +80,7 @@ public:
 private:
 #ifdef UAGENT_CLI_PROFILE
     CLI::App app_;
+    cli::CANSubcommand CAN_subcmd_;
     cli::UDPv4Subcommand udpv4_subcmd_;
     cli::UDPv6Subcommand udpv6_subcmd_;
     cli::TCPv4Subcommand tcpv4_subcmd_;
