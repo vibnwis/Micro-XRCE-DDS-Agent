@@ -137,7 +137,7 @@ bool DiscoveryCANServerLinux<EndPoint>::close()
 
 template<typename EndPoint>
 bool DiscoveryCANServerLinux<EndPoint>::recv_message(
-        InputPacket<CANEndPoint>& input_packet,
+        InputPacket<IPv4EndPoint>& input_packet,
         int timeout)
 {
     bool rv = false;
@@ -199,7 +199,7 @@ bool DiscoveryCANServerLinux<EndPoint>::recv_message(
 
 template<typename EndPoint>
 bool DiscoveryCANServerLinux<EndPoint>::send_message(
-        OutputPacket<CANEndPoint>&& output_packet)
+        OutputPacket<IPv4EndPoint>&& output_packet)
 {
     bool rv = false;
     struct sockaddr_in client_addr;

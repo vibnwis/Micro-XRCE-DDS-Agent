@@ -35,11 +35,10 @@ private:
     bool close() final;
 
     bool recv_message(
-            InputPacket<CANEndPoint>& input_packet,
-            int timeout) final;
+            InputPacket<IPv4EndPoint>& input_packet, int timeout) final ;
 
     bool send_message(
-            OutputPacket<CANEndPoint>&& output_packet) final;
+            OutputPacket<IPv4EndPoint>&& output_packet) final;
 
 private:
     struct pollfd poll_fd_;

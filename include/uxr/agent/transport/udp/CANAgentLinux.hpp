@@ -24,10 +24,10 @@
 
 
 #include <uxr/agent/transport/Server.hpp>
-#include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
+//#include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/CANEndPoint.hpp>
 #ifdef UAGENT_DISCOVERY_PROFILE
-#include <uxr/agent/transport/discovery/DiscoveryServerLinux.hpp>
+#include <uxr/agent/transport/discovery/DiscoveryCANServerLinux.hpp>
 #endif
 #ifdef UAGENT_P2P_PROFILE
 #include <uxr/agent/transport/p2p/AgentDiscovererLinux.hpp>
@@ -86,7 +86,7 @@ private:
     uint8_t buffer_[SERVER_BUFFER_SIZE];
     uint16_t agent_port_;
 #ifdef UAGENT_DISCOVERY_PROFILE
-    DiscoveryServerLinux<CANEndPoint> discovery_server_;
+    DiscoveryCANServerLinux<CANEndPoint> discovery_server_;
 #endif
 #ifdef UAGENT_P2P_PROFILE
     AgentDiscovererLinux agent_discoverer_;
