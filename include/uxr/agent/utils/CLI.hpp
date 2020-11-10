@@ -21,7 +21,7 @@
 #include <uxr/agent/transport/tcp/TCPv4AgentWindows.hpp>
 #include <uxr/agent/transport/tcp/TCPv6AgentWindows.hpp>
 #else
-#include <uxr/agent/transport/udp/CANAgentLinux.hpp>
+#include <uxr/agent/transport/can/CANAgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv4AgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv6AgentLinux.hpp>
 #include <uxr/agent/transport/tcp/TCPv4AgentLinux.hpp>
