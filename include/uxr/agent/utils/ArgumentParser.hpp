@@ -1001,6 +1001,46 @@ inline std::thread create_agent_thread<eprosima::uxr::PseudoTerminalAgent>(
     });
     return agent_thread;
 }
+
+template <>
+inline std::thread create_agent_thread<eprosima::uxr::CANAgent>(
+        int argc,
+        char** argv,
+        eprosima::uxr::agent::TransportKind transport_kind,
+        const sigset_t* signals)
+{
+    std::thread agent_thread = std::thread([=]() -> void
+    {
+        eprosima::uxr::agent::parser::ArgumentParser<eprosima::uxr::CANAgent>
+            parser(argc, argv, transport_kind);
+
+        switch (parser.parse_arguments())
+        {
+            case parser::ParseResult::INVALID:
+            case parser::ParseResult::NOT_FOUND:
+            {
+                parser::utils::usage();
+                break;
+            }
+            case parser::ParseResult::VALID:
+            {
+                if (parser.launch_can_agent())
+                {
+                    /* Wait for defined signals. */
+                    int n_signal = 0;
+                    sigwait(signals, &n_signal);
+                }
+                break;
+            }
+            case parser::ParseResult::HELP:
+            {
+                parser.show_help();
+                break;
+            }
+        }
+    });
+    return agent_thread;
+}
 #endif // _WIN32
 
 } // namespace agent

@@ -68,7 +68,9 @@ namespace uxr {
             perror("socket");
             return STATUS_SOCKET_CREATE_ERROR;
         }
-        int mtu, enable_canfd = 1;
+        int mtu = 1;
+
+        //int enable_canfd = 1; //Lim for time being not supporting CAN_FD
         struct sockaddr_can addr;
         struct ifreq ifr;
 
@@ -96,6 +98,7 @@ namespace uxr {
                 return STATUS_CANFD_NOT_SUPPORTED;
             }
 
+#if 0		/* Lim - Not supporting CAN FD for time being */
             /* interface is ok - try to switch the socket into CAN FD mode */
             if (setsockopt(m_socket, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
                 &enable_canfd, sizeof(enable_canfd))) 
@@ -103,6 +106,7 @@ namespace uxr {
                 
                 return STATUS_ENABLE_FD_SUPPORT_ERROR;
             }
+#endif
 
         }
 /*
