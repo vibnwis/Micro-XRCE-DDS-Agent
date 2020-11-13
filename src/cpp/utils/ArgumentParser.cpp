@@ -23,7 +23,7 @@ bool eprosima::uxr::agent::parser::utils::usage(
         bool no_help)
 {
     std::stringstream ss;
-    ss << "Usage: 'MicroXRCEAgent <udp4|udp6|tcp4|tpc6";
+    ss << "Usage: 'MicroXRCEAgent <can|can2|udp4|udp6|tcp4|tpc6";
 #ifndef _WIN32
     ss << "|serial|pseudoterminal";
 #endif // _WIN32
@@ -41,6 +41,8 @@ eprosima::uxr::agent::TransportKind eprosima::uxr::agent::parser::utils::check_t
         const char* transport)
 {
     const std::unordered_map<std::string, TransportKind> valid_transports = {
+    {"can", eprosima::uxr::agent::TransportKind::CAN}
+    {"can2", eprosima::uxr::agent::TransportKind::CAN2}
     {"udp4", eprosima::uxr::agent::TransportKind::UDP4},
     {"udp6", eprosima::uxr::agent::TransportKind::UDP6},
     {"tcp4", eprosima::uxr::agent::TransportKind::TCP4},

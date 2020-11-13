@@ -66,11 +66,12 @@ public:
     	return len_; 
     }
     
-    uint8_t set_data(uint8_t *in_data) {
-    	
+    uint8_t set_data(uint8_t *in_data, uint8_t len) {	
+    	len_ = len;
     	memcpy(buf_, in_data, len_);		// len = port & 0x0007
     	return len_;
     }
+    
 
 private:
     uint16_t id_;

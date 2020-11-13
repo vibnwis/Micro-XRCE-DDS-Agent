@@ -143,24 +143,9 @@ bool CAN2Agent::recv_message(
     	}
 
     	printf("\n");
-    	
-  //  	input_packet.message->set_id((uint16_t)can_msg.id);
-  //  	input_packet.set_id(can_msg.id);
-  //  	input_packet.id = can_msg.id;
-
-    //	InputMessage imesg(can_msg.data, size_t(can_msg.len));
-
-      //  input_packet.message.reset();
-
-    //	uint32_t addr = client_addr.sin_addr.s_addr;
-   // 	uint16_t port = client_addr.sin_port;
-
-   // 	input_packet.source = CANEndPoint(addr, port);
-   // 	            rv = true;
-
- //   	input_packet.message->set_port((uint16_t)can_msg.id);
- //   	input_packet.message->set_len((uint8_t)can_msg.len);
- //   	input_packet.message->set_data (can_msg.data);
+    	input_packet.source.set_id(can_msg.id);
+    	input_packet.source.set_len(can_msg.len);
+    	input_packet.source.set_data(can_msg.data, can_msg.len);
 
       	rv = true;
        	UXR_AGENT_LOG_MESSAGE(
@@ -171,46 +156,7 @@ bool CAN2Agent::recv_message(
 
      }
 
-//    struct sockaddr_in client_addr{};
-//    socklen_t client_addr_len = sizeof(struct sockaddr_in);
 
-#if 0
-    int poll_rv = poll(&poll_fd_, 1, timeout);
-    if (0 < poll_rv)
-    {
-        ssize_t bytes_received =
-                recvfrom(poll_fd_.fd,
-                         buffer_,
-                         sizeof(buffer_),
-                         0,
-                         reinterpret_cast<struct sockaddr*>(&client_addr),
-                         &client_addr_len);
-        if (-1 != bytes_received)
-        {
-            input_packet.message.reset(new InputMessage(buffer_, size_t(bytes_received)));
-            uint32_t addr = client_addr.sin_addr.s_addr;
-            uint16_t port = client_addr.sin_port;
-            input_packet.source = CANEndPoint(addr, port);
-            rv = true;
-
-            uint32_t raw_client_key = 0u;
-            Server<CANEndPoint>::get_client_key(input_packet.source, raw_client_key);
-            UXR_AGENT_LOG_MESSAGE(
-                UXR_DECORATE_YELLOW("[==>> UDP <<==]"),
-                raw_client_key,
-                input_packet.message->get_addr(),
-                input_packet.message->get_port());
-        }
-        else
-        {
-            transport_rc = TransportRc::server_error;
-        }
-    }
-    else
-    {
-        transport_rc = (0 == poll_rv) ? TransportRc::timeout_error : TransportRc::server_error;
-    }
-#endif
 
     return rv;
 }
@@ -222,68 +168,49 @@ bool CAN2Agent::send_message(
     bool rv = false;
     SocketCanStatus can_status = STATUS_CAN_OP_ERROR;
     struct CanFrame can_msg;
-
-
- //   struct sockaddr_in client_addr{};
-
-    can_msg.id = 0x120;
-    can_msg.len = output_packet.message->get_len();
-
-    memcpy(can_msg.data, output_packet.message->get_buf(), can_msg.len + 1);
-
-
-    if (STATUS_OK != (can_status = socket_can_.write(can_msg)))
+    uint8_t count =0;
+#if 1
+    can_msg.id = output_packet.destination.get_id();
+    can_msg.len = output_packet.destination.get_len();
+    
+    while (output_packet.destination.get_data(can_msg.data) != can_msg.len )
     {
-    	printf("something went wrong on socket write, error code : %d \n", int32_t(can_status));
-    	transport_rc = TransportRc::server_error;
+    	   printf("output_packet length and read data length mismatche\n");
+    	   
+    	   
+    	   if (count++ > 5)
+    	   {
+    		   printf("output packet reading exceeded %d times \n", count);
+    		   transport_rc = TransportRc::server_error;    	   
+    		   break;
+    	   }
     }
-    else
+    
+
+    if (count <= 5) 
     {
-    	rv = true;
-    	UXR_AGENT_LOG_MESSAGE(
-   			UXR_DECORATE_YELLOW("[** <<CAN>> **]"),
-			can_msg.id = 0x120,
-			output_packet.message->get_buf(),
-   	        output_packet.message->get_len());
+    	printf("output packet reading count %d \n", count);
+    		
+    	if (STATUS_OK != (can_status = socket_can_.write(can_msg)))
+    	{
+    	
+    		printf("something went wrong on socket write, error code : %d \n", int32_t(can_status));
+    		transport_rc = TransportRc::server_error;
+    	}
+    	else
+    	{
+    		rv = true;
+    		UXR_AGENT_LOG_MESSAGE(
+   				UXR_DECORATE_YELLOW("[** <<CAN>> **]"),
+				can_msg.id,
+				can_msg.data,
+				can_msg.len);
 
-    	printf("Message was written to the socket \n");
+    		printf("Message was written to the socket \n");
 
-   }
-
-#if 0
-    memset(&client_addr, 0, sizeof(client_addr));
-    client_addr.sin_family = AF_INET;
-    client_addr.sin_port = output_packet.destination.get_port();
-    client_addr.sin_addr.s_addr = output_packet.destination.get_addr();
-
-    ssize_t bytes_sent =
-        sendto(
-            poll_fd_.fd,
-            output_packet.message->get_buf(),
-            output_packet.message->get_len(),
-            0,
-            reinterpret_cast<struct sockaddr*>(&client_addr),
-            sizeof(client_addr));
-    if (-1 != bytes_sent)
-    {
-        if (size_t(bytes_sent) == output_packet.message->get_len())
-        {
-            rv = true;
-            uint32_t raw_client_key = 0u;
-            Server<CANEndPoint>::get_client_key(output_packet.destination, raw_client_key);
-            UXR_AGENT_LOG_MESSAGE(
-                UXR_DECORATE_YELLOW("[** <<UDP>> **]"),
-                raw_client_key,
-                output_packet.message->get_buf(),
-                output_packet.message->get_len());
-        }
-    }
-    else
-    {
-        transport_rc = TransportRc::server_error;
+   		}
     }
 #endif
-
     return rv;
 }
 
