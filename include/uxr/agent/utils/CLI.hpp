@@ -309,9 +309,11 @@ public:
 private:
     void launch_server()
     {
-        server_.reset(new eprosima::uxr::CANAgent(port_, common_opts_.middleware_opt_.get_kind()));
+    //	server_.reset(new eprosima::uxr::CANAgent(dev, common_opts_.middleware_opt_.get_kind()));
+        server_.reset(new eprosima::uxr::CANAgent(port_, dev, common_opts_.middleware_opt_.get_kind()));
         if (server_->start())
         {
+
 #ifdef UAGENT_DISCOVERY_PROFILE
             if (opts_ref_.discovery_opt_.is_enable())
             {
@@ -326,6 +328,7 @@ private:
                 server_->enable_p2p(opts_ref_.p2p_opt_.get_port());
             }
 #endif
+
             if (opts_ref_.reference_opt_.is_enable())
             {
                 server_->load_config_file(opts_ref_.reference_opt_.get_file());
@@ -341,6 +344,7 @@ private:
 private:
     std::unique_ptr<eprosima::uxr::CANAgent> server_;
     uint16_t port_;
+    const char * dev;
     CLI::Option* cli_opt_;
     CommonOpts common_opts_;
 };
