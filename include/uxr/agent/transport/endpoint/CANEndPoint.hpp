@@ -62,11 +62,37 @@ public:
    }
 
     uint32_t get_addr() const { return addr_; }
+ 
     uint16_t get_port() const { return port_; }
+    
+    void set_port(uint16_t can_id){
+    	port_ = 0x0FFF & can_id;
+    }
+    
+    void set_len(uint8_t len){
+        	len_ = len;
+    }
+    
+    uint8_t get_len(){
+           return len_;
+    }
+    
+    uint8_t get_data(uint8_t *in_data) { 
+    	memcpy(in_data, data_, len_);		// len = port & 0x0007
+    	return len_; 
+    }
+    
+    uint8_t set_data(uint8_t *in_data) {
+    	
+    	memcpy(data_, in_data, len_);		// len = port & 0x0007
+    	return len_;
+    }
 
 private:
     uint32_t addr_;
     uint16_t port_;
+    uint8_t data_[8];
+    uint8_t len_;
 };
 
 

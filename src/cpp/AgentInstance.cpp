@@ -93,13 +93,22 @@ bool AgentInstance::create(
     switch (valid_transport)
     {
     	case agent::TransportKind::CAN:
-            {
+        {
                 agent_thread_ = std::move(agent::create_agent_thread<CANAgent>(argc, argv, valid_transport,
 #ifndef _WIN32
                     &signals_
 #endif  // _WIN32
                     ));
                 break;
+        }
+        case agent::TransportKind::CAN2:
+        {
+                agent_thread_ = std::move(agent::create_agent_thread<CAN2Agent>(argc, argv, valid_transport,
+#ifndef _WIN32
+                                &signals_
+#endif  // _WIN32
+                    ));
+                 break;
         }
         case agent::TransportKind::UDP4:
         {

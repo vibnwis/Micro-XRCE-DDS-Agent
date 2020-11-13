@@ -148,6 +148,7 @@ endif()
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(TRANSPORT_SRCS
         src/cpp/transport/can/CANAgentLinux.cpp
+        src/cpp/transport/can/CAN2AgentLinux.cpp
         src/cpp/transport/can/socketcan_cpp.cpp
         src/cpp/transport/udp/UDPv4AgentLinux.cpp
         src/cpp/transport/udp/UDPv6AgentLinux.cpp

@@ -27,6 +27,7 @@
 #include <uxr/agent/transport/tcp/TCPv4AgentWindows.hpp>
 #include <uxr/agent/transport/tcp/TCPv6AgentWindows.hpp>
 #else
+#include <uxr/agent/transport/udp/CAN2AgentLinux.hpp>
 #include <uxr/agent/transport/udp/CANAgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv4AgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv6AgentLinux.hpp>
@@ -45,6 +46,7 @@
 #define DEFAULT_VERBOSE_LEVEL   4
 #define DEFAULT_DISCOVERY_PORT  7400
 #define DEFAULT_BAUDRATE_LEVEL  "115200"
+#define DEFAULT_CAN_INTERFACE   "can0"
 
 namespace eprosima {
 namespace uxr {
@@ -54,6 +56,7 @@ enum class TransportKind
 {
     INVALID,
 	CAN,
+	CAN2,
     UDP4,
     UDP6,
     TCP4,
@@ -571,6 +574,42 @@ private:
     Argument<uint16_t> port_;
 };
 
+*************************************************************************************************
+ * Specific arguments for CAN2 transports
+ *************************************************************************************************/
+template <typename AgentType>
+class CAN2Args
+{
+public:
+	 CAN2Args()
+        : dev_("-c", "--can_dev", DEFAULT_BAUDRATE_LEVEL)
+    {
+    }
+
+    bool parse(
+            int argc,
+            char** argv)
+    {
+        bool result = static_cast<bool>(dev_.parse_argument(argc, argv));
+        return result;
+    }
+
+    const std::string dev() const
+    {
+        return dev_.value();
+    }
+
+    const std::string get_help() const
+    {
+        std::stringstream ss;
+        ss << "    " << dev_.get_help() << std::endl;
+        return ss.str();
+    }
+
+protected:
+    Argument<std::string> dev_;
+};
+
 #ifndef _WIN32
 /*************************************************************************************************
  * Specific arguments for pseudoterminal transports
@@ -671,6 +710,7 @@ public:
         , common_args_()
         , ip_args_()
     	, can_args_()
+	, can2_args()
 #ifndef _WIN32
         , serial_args_()
         , pseudoterminal_args_()
@@ -695,9 +735,14 @@ public:
         bool result = common_result.first;
         switch (transport_kind_)
         {
-        	case TransportKind::CAN:
+            case TransportKind::CAN:
         	{
         		result &= can_args_.parse(argc_, argv_);
+        	    break;
+        	}
+	    case TransportKind::CAN2:
+        	{
+        		result &= can2_args_.parse(argc_, argv_);
         	    break;
         	}
             case TransportKind::UDP4:
@@ -746,7 +791,7 @@ public:
     }
 
     bool launch_can_agent()
-       {
+    {
            agent_server_.reset(new AgentType(can_args_.port(), utils::get_mw_kind(common_args_.middleware())));
            if (agent_server_->start())
            {
@@ -758,6 +803,21 @@ public:
                std::cerr << "Error while starting CAN agent!" << std::endl;
                return false;
            }
+    }
+
+    bool launch_can2_agent()
+       {
+              agent_server_.reset(new AgentType(can2_args_.port(), utils::get_mw_kind(common_args_.middleware())));
+              if (agent_server_->start())
+              {
+                  common_args_.apply_actions(agent_server_);
+                  return true;
+              }
+              else
+              {
+                  std::cerr << "Error while starting CAN agent!" << std::endl;
+                  return false;
+              }
        }
 
 #ifndef _WIN32
@@ -854,6 +914,7 @@ private:
     CommonArgs<AgentType> common_args_;
     IPvXArgs<AgentType> ip_args_;
     CANArgs<AgentType> can_args_;
+    CAN2Args<AgentType> can2_args_;
 #ifndef _WIN32
     SerialArgs<AgentType> serial_args_;
     PseudoTerminalArgs<AgentType> pseudoterminal_args_;
@@ -1025,6 +1086,46 @@ inline std::thread create_agent_thread<eprosima::uxr::CANAgent>(
             case parser::ParseResult::VALID:
             {
                 if (parser.launch_can_agent())
+                {
+                    /* Wait for defined signals. */
+                    int n_signal = 0;
+                    sigwait(signals, &n_signal);
+                }
+                break;
+            }
+            case parser::ParseResult::HELP:
+            {
+                parser.show_help();
+                break;
+            }
+        }
+    });
+    return agent_thread;
+}
+
+template <>
+inline std::thread create_agent_thread<eprosima::uxr::CAN2Agent>(
+        int argc,
+        char** argv,
+        eprosima::uxr::agent::TransportKind transport_kind,
+        const sigset_t* signals)
+{
+    std::thread agent_thread = std::thread([=]() -> void
+    {
+        eprosima::uxr::agent::parser::ArgumentParser<eprosima::uxr::CAN2Agent>
+            parser(argc, argv, transport_kind);
+
+        switch (parser.parse_arguments())
+        {
+            case parser::ParseResult::INVALID:
+            case parser::ParseResult::NOT_FOUND:
+            {
+                parser::utils::usage();
+                break;
+            }
+            case parser::ParseResult::VALID:
+            {
+                if (parser.launch_can2_agent())
                 {
                     /* Wait for defined signals. */
                     int n_signal = 0;

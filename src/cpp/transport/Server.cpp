@@ -18,6 +18,7 @@
 #include <uxr/agent/Root.hpp>
 #include <uxr/agent/logger/Logger.hpp>
 
+#include <uxr/agent/transport/endpoint/CAN2EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/CANEndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv6EndPoint.hpp>
@@ -261,6 +262,7 @@ void Server<EndPoint>::error_handler_loop()
     }
 }
 
+template class Server<CAN2EndPoint>;
 template class Server<CANEndPoint>;
 template class Server<IPv4EndPoint>;
 template class Server<IPv6EndPoint>;
