@@ -669,7 +669,7 @@ public:
         , argv_(argv)
         , common_args_()
         , ip_args_()
-	, can2_args()
+	 , can2_args_()
 #ifndef _WIN32
         , serial_args_()
         , pseudoterminal_args_()
