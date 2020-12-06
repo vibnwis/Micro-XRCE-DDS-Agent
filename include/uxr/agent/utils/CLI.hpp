@@ -21,7 +21,8 @@
 #include <uxr/agent/transport/tcp/TCPv4AgentWindows.hpp>
 #include <uxr/agent/transport/tcp/TCPv6AgentWindows.hpp>
 #else
-#include <uxr/agent/transport/can/CANAgentLinux.hpp>
+#include <uxr/agent/transport/can/CAN2AgentLinux.hpp>
+//#include "../transport/can/old_CANAgentLinux.hpp"
 #include <uxr/agent/transport/udp/UDPv4AgentLinux.hpp>
 #include <uxr/agent/transport/udp/UDPv6AgentLinux.hpp>
 #include <uxr/agent/transport/tcp/TCPv4AgentLinux.hpp>
@@ -291,6 +292,57 @@ protected:
 
 
 /*************************************************************************************************
+ * CAN2 Subcommand
+ *************************************************************************************************/
+class CAN2Subcommand : public ServerSubcommand
+{
+public:
+	CAN2Subcommand(CLI::App& app)
+        : ServerSubcommand{app, "can2", "Launch a CAN2 server", common_opts_}
+        , cli_opt_{cli_subcommand_->add_option("-d,--can-id", id_, "Select the CAN id")}
+        , common_opts_{*cli_subcommand_}
+    {
+        cli_opt_->required(true);
+    }
+
+    ~CAN2Subcommand() final = default;
+
+private:
+    void launch_server()
+    {
+
+
+    //	server_.reset(new eprosima::uxr::CANAgent(dev, common_opts_.middleware_opt_.get_kind()));
+   // 	CAN2Agent(uint16_t id,const char * dev,uint8_t len, Middleware::Kind middleware_kind)
+        server_.reset(new eprosima::uxr::CAN2Agent(id_, dev_, common_opts_.middleware_opt_.get_kind()));
+
+        if (server_->start())
+        {
+
+            if (opts_ref_.reference_opt_.is_enable())
+            {
+                server_->load_config_file(opts_ref_.reference_opt_.get_file());
+            }
+
+            if (opts_ref_.verbose_opt_.is_enable())
+            {
+                server_->set_verbose_level(opts_ref_.verbose_opt_.get_level());
+            }
+        }
+    }
+
+private:
+    std::unique_ptr<eprosima::uxr::CAN2Agent> server_;
+    uint16_t id_;
+    const char * dev_;
+    uint8_t len_;
+    CLI::Option* cli_opt_;
+    CommonOpts common_opts_;
+};
+
+
+
+/*************************************************************************************************
  * CAN Subcommand
  *************************************************************************************************/
 class CANSubcommand : public ServerSubcommand
@@ -310,7 +362,7 @@ private:
     void launch_server()
     {
     //	server_.reset(new eprosima::uxr::CANAgent(dev, common_opts_.middleware_opt_.get_kind()));
-        server_.reset(new eprosima::uxr::CANAgent(port_, dev, common_opts_.middleware_opt_.get_kind()));
+        server_.reset(new eprosima::uxr::CANAgent(port_, dev_, common_opts_.middleware_opt_.get_kind()));
         if (server_->start())
         {
 
@@ -344,7 +396,7 @@ private:
 private:
     std::unique_ptr<eprosima::uxr::CANAgent> server_;
     uint16_t port_;
-    const char * dev;
+    const char * dev_;
     CLI::Option* cli_opt_;
     CommonOpts common_opts_;
 };

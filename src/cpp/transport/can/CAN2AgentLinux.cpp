@@ -18,6 +18,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <uxr/agent/types/MessageHeader.hpp>
+#include <uxr/agent/types/SubMessageHeader.hpp>
 
 #include <uxr/agent/transport/can/CAN2AgentLinux.hpp>
 #include <uxr/agent/transport/can/socketcan_cpp.hpp>
@@ -36,20 +38,18 @@
 namespace eprosima {
 namespace uxr {
 
-#define CAN_TRANSPORT_ACTIVE
+#define CAN2_TRANSPORT_ACTIVE
 
 
 CAN2Agent::CAN2Agent(
-        uint16_t id,
-		const char * dev,
-		uint8_t len,
+ //       uint16_t id,
+		const std::string dev,
+//const char * dev,
         Middleware::Kind middleware_kind)
     : Server<CAN2EndPoint>{middleware_kind}
     , poll_fd_{-1, 0, 0}
     , buffer_{0}
     , dev_{dev}
-    , len_{len}
-    , id_{id}
 {}
 
 
@@ -62,7 +62,7 @@ CAN2Agent::~CAN2Agent()
     catch (std::exception& e)
     {
         UXR_AGENT_LOG_CRITICAL(
-            UXR_DECORATE_RED("error stopping server"),
+            UXR_DECORATE_RED("CAN2 error stopping server"),
             "exception: {}",
             e.what());
     }
@@ -81,9 +81,12 @@ bool CAN2Agent::init()
     if (-1 == poll_fd_.fd)					// STATUS_OP_FAILED = -1
     {
         UXR_AGENT_LOG_ERROR(
-            UXR_DECORATE_RED("CAN socket error"),
+            UXR_DECORATE_RED("CAN2 socket error"),
             "dev_: {}, errno: {}",
 			dev_, errno);
+    }
+    else {
+    	rv = true;
     }
 
     return rv;
@@ -93,7 +96,7 @@ bool CAN2Agent::fini()
 {
     if (-1 == poll_fd_.fd)
     {
-        return true;
+        return false;
     }
 
     bool rv = false;
@@ -103,14 +106,14 @@ bool CAN2Agent::fini()
         poll_fd_.fd = -1;
         rv = true;
         UXR_AGENT_LOG_INFO(
-            UXR_DECORATE_GREEN("CAN server stopped"),
+            UXR_DECORATE_GREEN("CAN2 server stopped"),
             "dev_: {}",
 			dev_);
     }
     else
     {
         UXR_AGENT_LOG_ERROR(
-            UXR_DECORATE_RED("socket error"),
+            UXR_DECORATE_RED("CAN2 : socket error"),
             "dev_: {}, errno: {}",
 			dev_, errno);
     }
@@ -131,7 +134,7 @@ bool CAN2Agent::recv_message(
 
     if (socket_can_.read(can_msg) != STATUS_OK)
     {
-    	printf("*** CAN - read error *** \n");
+    	printf("*** CAN2 - read error *** \n");
     	transport_rc = TransportRc::server_error;
     }
     else
@@ -149,7 +152,7 @@ bool CAN2Agent::recv_message(
 
       	rv = true;
        	UXR_AGENT_LOG_MESSAGE(
-      			UXR_DECORATE_YELLOW("[** <<CAN>> **]"),
+      			UXR_DECORATE_YELLOW("[** <<CAN2>> **]"),
     			can_msg.id = 0x120,
 				input_packet.message->get_buf(),
 				input_packet.message->get_len());
@@ -178,7 +181,7 @@ bool CAN2Agent::send_message(
     	   printf("output_packet length and read data length mismatche\n");
     	   
     	   
-    	   if (count++ > 5)
+    	   if (count++ > 8)
     	   {
     		   printf("output packet reading exceeded %d times \n", count);
     		   transport_rc = TransportRc::server_error;    	   
@@ -187,7 +190,7 @@ bool CAN2Agent::send_message(
     }
     
 
-    if (count <= 5) 
+    if (count <= 8)
     {
     	printf("output packet reading count %d \n", count);
     		
@@ -201,7 +204,7 @@ bool CAN2Agent::send_message(
     	{
     		rv = true;
     		UXR_AGENT_LOG_MESSAGE(
-   				UXR_DECORATE_YELLOW("[** <<CAN>> **]"),
+   				UXR_DECORATE_YELLOW("[** <<CAN2>> **]"),
 				can_msg.id,
 				can_msg.data,
 				can_msg.len);

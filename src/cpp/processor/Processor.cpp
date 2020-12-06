@@ -22,7 +22,6 @@
 #include <uxr/agent/utils/Time.hpp>
 
 #include <uxr/agent/transport/endpoint/CAN2EndPoint.hpp>
-#include <uxr/agent/transport/endpoint/CANEndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv6EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/SerialEndPoint.hpp>
@@ -835,7 +834,6 @@ void Processor<EndPoint>::check_heartbeats()
 }
 
 template class Processor<CAN2EndPoint>;
-template class Processor<CANEndPoint>;
 template class Processor<IPv4EndPoint>;
 template class Processor<IPv6EndPoint>;
 template class Processor<SerialEndPoint>;

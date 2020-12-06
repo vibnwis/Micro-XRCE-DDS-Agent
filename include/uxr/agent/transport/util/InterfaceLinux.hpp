@@ -16,7 +16,7 @@
 #define UXR_AGENT_TRANSPORT_UTIL_INTERFACELINUX_HPP_
 
 #include <uxr/agent/transport/util/Interface.hpp>
-#include <uxr/agent/transport/endpoint/CANEndPoint.hpp>
+#include <uxr/agent/transport/endpoint/CAN2EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv4EndPoint.hpp>
 #include <uxr/agent/transport/endpoint/IPv6EndPoint.hpp>
 #include <uxr/agent/logger/Logger.hpp>
@@ -38,7 +38,7 @@ void get_transport_interfaces(
 
 template<>
 inline
-void get_transport_interfaces<CANEndPoint>(
+void get_transport_interfaces<CAN2EndPoint>(
     uint16_t agent_port,
     std::vector<dds::xrce::TransportAddress>& transport_addresses)
 {

@@ -59,15 +59,16 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
         m_socket_mode = mode;
         m_read_timeout_ms = read_timeout_ms;
 
-#ifdef HAVE_SOCKETCAN_HEADERS
+        char buf[100];
+
 
         /* open socket */
         if ((s = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0)
         {
-            perror("socket");
+            perror("socketcan ");
             return STATUS_SOCKET_CREATE_ERROR;
         }
-        int mtu = 1;
+
 
         //int enable_canfd = 1; //Lim for time being not supporting CAN_FD
 
@@ -76,16 +77,20 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
         strncpy(ifr.ifr_name, can_interface.c_str(), IFNAMSIZ - 1);
         ifr.ifr_name[IFNAMSIZ - 1] = '\0';
 
-#if 1
+
+/*
+ * retrieve index of the interface name
+ */
         ifr.ifr_ifindex = if_nametoindex(ifr.ifr_name);
+        /*
+         * index of the interface name
+         */
         if (!ifr.ifr_ifindex) {
             perror("if_nametoindex");
             printf("Interface name %s",ifr.ifr_name);
             return STATUS_INTERFACE_NAME_TO_IDX_ERROR;
         }
-#else
-        strcpy(ifr.ifr_name, can_interface.c_str());
-#endif
+
         /*
          * retrieve the interface index for the interface name (can0, can1, vcan0 etc) we wish to use.
          */
@@ -94,35 +99,6 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
             perror("SIOCGIFINDEX");
             return STATUS_CAN_OP_ERROR;
         }
-
-        if (mode == MODE_CAN_MTU)
-        {
-        	/* check if the frame fits into the CAN netdevice */
-        	if (ioctl(s, SIOCGIFMTU, &ifr) < 0) {
-        		perror("SIOCGIFMTU");
-        	    return STATUS_MTU_ERROR;
-        	}
-        	mtu = ifr.ifr_mtu;
-
-        	if (mtu != CAN_MTU) {
-        	    return STATUS_MTU_ERROR;
-        	}
-
-
-
-
-#if 0		/* 9 Nov 20 Lim - Not supporting CAN FD for time being */
-            /* Initial - interface is ok - try to switch the socket into CAN FD mode */
-            if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
-                &enable_canfd, sizeof(enable_canfd))) 
-            {
-                
-                return STATUS_ENABLE_FD_SUPPORT_ERROR;
-            }
-#endif
-
-        }
-
 
         /*
         	const int timestamping_flags = (SOF_TIMESTAMPING_SOFTWARE | \
@@ -151,13 +127,23 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
 
         /* 12 Nov 20 Lim - Re-open the default receive filter on this RAW socket */
         //setsockopt(m_socket, SOL_CAN_RAW, CAN_RAW_FILTER, NULL, 0);  // Disable frame reception
-        struct can_filter rfilter[2];
+        /*
+         * A filter matches, when  <received_can_id> & mask == can_id & mask
+         */
 
+
+#if 0
+        struct can_filter rfilter[2];
         rfilter[0].can_id   = 0x128;
         rfilter[0].can_mask = CAN_SFF_MASK;
         rfilter[1].can_id   = 0x120; 	//x120-x123
         rfilter[1].can_mask = 0x1FC;  	//001-1111-1100 eg, 0x120-0x123
-
+#else
+        /* accept all frames */
+        struct can_filter rfilter[1];
+        rfilter[0].can_id   = CAN_SFF_MASK;
+        rfilter[0].can_mask = 0x0;   	// can_mask = 0, all frames pass through
+#endif
         setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
 
 
@@ -168,21 +154,15 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
         addr.can_family = AF_CAN;
         addr.can_ifindex = ifr.ifr_ifindex;
 
-        /* reading timeout */
-        struct timeval tv;
-        tv.tv_sec = 0;  /* 30 Secs Timeout */
-        tv.tv_usec = m_read_timeout_ms * 1000;  // Not init'ing this can cause strange errors
-        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv,sizeof(struct timeval));
 
         if (bind(s, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-            perror("bind");
+            perror("Socket CAN2 bind");
             return STATUS_BIND_ERROR;
         }
-#else
-        printf("Your operating system does not support socket can! \n");
-        return STATUS_CAN_OP_ERROR;
 
-#endif
+        sprintf(buf,"%s \n", ifr.ifr_name);
+        printf("SocketCAN for interface %s succeeded\n",buf);
+
         return STATUS_OK;
 }
 
@@ -199,7 +179,8 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
 
 SocketCanStatus SocketCan::write(const CanFrame & msg)
 {
-#ifdef HAVE_SOCKETCAN_HEADERS
+
+		char buf[100];
         struct can_frame frame;
         memset(&frame, 0, sizeof(frame)); /* init CAN FD frame, e.g. LEN = 0 */
         //convert CanFrame to canfd_frame
@@ -207,44 +188,44 @@ SocketCanStatus SocketCan::write(const CanFrame & msg)
         frame.can_dlc = msg.len;
         //frame.flags = msg.flags;
 
+
         /*
          * Use sprintf to fill-up frame.data
          */
 
         // sprintf(frame.data, "Hello");
+
+        /*
+         * User memcpy to fill-up frame i.e. msg.data
+         */
         memcpy(frame.data, msg.data, msg.len);
 
-#if 0   // 12-11-20 Lim not supporting CAN-FD for time being
-        if (m_socket_mode == MODE_CANFD_MTU)
-        {
-            /* ensure discrete CAN FD length values 0..8, 12, 16, 20, 24, 32, 64 */
-            frame.len = can_dlc2len(can_len2dlc(frame.len));
-        }
-#else
         m_socket_mode = MODE_CAN_MTU;
-#endif
+
         /* send frame */
         if (::write(s, &frame, int(sizeof(struct can_frame))) != int(sizeof(struct can_frame))) {
-            perror("CAN write error");
+            perror("CAN2 write error");
             return STATUS_WRITE_ERROR;
         }
-#else
-        printf("Your operating system does not support socket can! \n");
-#endif
+
+        sprintf(buf,"%s \n", msg.data);
+        printf("SocketCAN: Write() %s \n",buf);
+
         return STATUS_OK;
 }
 
 
 SocketCanStatus SocketCan::read(CanFrame & msg)
 {
-#ifdef HAVE_SOCKETCAN_HEADERS
+
         struct can_frame frame;
+        char buf[100];
 
         // Read in a CAN frame
         auto num_bytes = ::read(s, &frame, int(sizeof(struct can_frame)));
         if (num_bytes < 0 ) 	//  old implementation (num_bytes != CAN_MTU && num_bytes != CANFD_MTU)
         {
-            perror("CAN read error");
+            perror("CAN2 read error");
             return STATUS_READ_ERROR;
         }
 
@@ -252,17 +233,17 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
         msg.len = frame.can_dlc;
         //msg.flags = frame.flags;
         memcpy(msg.data, frame.data, frame.can_dlc);
-#else
-        printf("Your operating system does not support socket can! \n");
-#endif
+
+        sprintf(buf,"%s \n", msg.data);
+        printf("SocketCAN: Read() %s \n",buf);
+
         return STATUS_OK;
 }
 
 SocketCanStatus SocketCan::close()
 {
-#ifdef HAVE_SOCKETCAN_HEADERS
+		printf("SocketCAN:close()\n");
         ::close(s);
-#endif
         return STATUS_OK;
 }
 
@@ -273,6 +254,7 @@ const std::string & SocketCan::interfaceName() const
 
 SocketCan::~SocketCan()
 {
+		printf("Socketcan_cpp class de-init\n");
         close();
 }
 

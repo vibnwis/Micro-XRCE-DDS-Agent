@@ -10,7 +10,6 @@
 
 #include <uxr/agent/transport/Server.hpp>
 #include <uxr/agent/transport/endpoint/CAN2EndPoint.hpp>
-
 #include "socketcan_cpp.hpp"
 
 #include <cstdint>
@@ -26,9 +25,9 @@ class CAN2Agent : public Server<CAN2EndPoint>
 {
 public:
 	CAN2Agent(
-		    uint16_t id,
-			const char * dev,
-			uint8_t len,
+//		    uint16_t id,
+//			const char * dev,
+			const std::string dev,
 		    Middleware::Kind middleware_kind);
 
     ~CAN2Agent() final;
@@ -37,7 +36,6 @@ private:
     bool init() final;
 
     bool fini() final;
-
 
     bool recv_message(
             InputPacket<CAN2EndPoint>& input_packet,
@@ -56,7 +54,8 @@ private:
     uint8_t buffer_[SERVER_BUFFER_SIZE];
     uint16_t id_;
     uint8_t len_;
-    const char * dev_;
+    //const char * dev_;
+    const std::string dev_;
     SocketCan socket_can_;
 };
 

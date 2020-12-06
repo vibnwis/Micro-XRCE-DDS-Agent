@@ -18,7 +18,6 @@
 
 namespace eprosima {
 namespace uxr {
-//namespace scpp {
 
 enum SocketMode
 {
@@ -79,7 +78,7 @@ class SocketCan
         std::string m_interface;
         SocketMode m_socket_mode;
     };
-//} //scpp
+
 } // namespace uxr
 } // namespace eprosima
 
