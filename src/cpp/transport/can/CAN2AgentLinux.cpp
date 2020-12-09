@@ -73,21 +73,25 @@ bool CAN2Agent::init()
     bool rv = false;
 
     //SocketCan socket_can;
-    int32_t read_timeout_ms = 1000;							// 1000ms
+    int32_t read_timeout_ms = 1000;
+    int ret_val = 0;
+    // 1000ms
     //poll_fd_.fd = socket_can.open("can0"); 	// != scpp::STATUS_OK)
-    poll_fd_.fd = socket_can_.open(dev_,read_timeout_ms, MODE_CAN_MTU); 	// != scpp::STATUS_OK)
+    ret_val = socket_can_.open(dev_,read_timeout_ms, MODE_CAN_MTU); 	// != scpp::STATUS_OK)
 
-    
-    if (-1 == poll_fd_.fd)					// STATUS_OP_FAILED = -1
+    poll_fd_.fd = ret_val;
+    if (-1 != ret_val)					// STATUS_OP_FAILED = -1
     {
+    	rv = true;
+    	return rv;
+    }
+
+#ifdef SW_UXR_AGENT_ON
         UXR_AGENT_LOG_ERROR(
             UXR_DECORATE_RED("CAN2 socket error"),
             "dev_: {}, errno: {}",
 			dev_, errno);
-    }
-    else {
-    	rv = true;
-    }
+#endif
 
     return rv;
 }
@@ -105,17 +109,21 @@ bool CAN2Agent::fini()
     {
         poll_fd_.fd = -1;
         rv = true;
+#ifdef SW_UXR_AGENT_ON
         UXR_AGENT_LOG_INFO(
             UXR_DECORATE_GREEN("CAN2 server stopped"),
             "dev_: {}",
 			dev_);
+#endif
     }
     else
     {
+#ifdef SW_UXR_AGENT_ON
         UXR_AGENT_LOG_ERROR(
             UXR_DECORATE_RED("CAN2 : socket error"),
             "dev_: {}, errno: {}",
 			dev_, errno);
+#endif
     }
 
     return rv;
@@ -131,11 +139,17 @@ bool CAN2Agent::recv_message(
     SocketCanStatus can_status = STATUS_CAN_OP_ERROR;
     struct CanFrame can_msg;
     int i = 0;
+    printf("CAN2Agent::recv_message() entered \n");
+
+    memset(&can_msg, 0, sizeof(struct CanFrame));
 
     if (socket_can_.read(can_msg) != STATUS_OK)
     {
     	printf("*** CAN2 - read error *** \n");
+#ifdef SW_UXR_AGENT_ON
     	transport_rc = TransportRc::server_error;
+#endif
+    	return rv;
     }
     else
     {
@@ -146,21 +160,28 @@ bool CAN2Agent::recv_message(
     	}
 
     	printf("\n");
+
+    	printf("write frame_id to source of input_packet \n");
     	input_packet.source.set_id(can_msg.id);
+
+    	printf("write frame_len to source of input_packet \n");
     	input_packet.source.set_len(can_msg.len);
+
+    	printf("write frame_data to source of input_packet \n");
     	input_packet.source.set_data(can_msg.data, can_msg.len);
 
       	rv = true;
+#ifdef SW_UXR_AGENT_ON
        	UXR_AGENT_LOG_MESSAGE(
-      			UXR_DECORATE_YELLOW("[** <<CAN2>> **]"),
-    			can_msg.id = 0x120,
-				input_packet.message->get_buf(),
-				input_packet.message->get_len());
-
+      			UXR_DECORATE_YELLOW("[** <<CAN2 recv_message()>> **]"),
+    			can_msg.id,
+				can_msg.data,
+				can_msg.len);
+#endif
      }
 
 
-
+    printf("CAN2Agent::recv_message() exited \n");
     return rv;
 }
 
@@ -172,7 +193,9 @@ bool CAN2Agent::send_message(
     SocketCanStatus can_status = STATUS_CAN_OP_ERROR;
     struct CanFrame can_msg;
     uint8_t count =0;
-#if 1
+
+    printf("CAN2Agent::send_message() entered \n");
+
     can_msg.id = output_packet.destination.get_id();
     can_msg.len = output_packet.destination.get_len();
     
@@ -184,7 +207,9 @@ bool CAN2Agent::send_message(
     	   if (count++ > 8)
     	   {
     		   printf("output packet reading exceeded %d times \n", count);
-    		   transport_rc = TransportRc::server_error;    	   
+#ifdef SW_UXR_AGENT_ON
+    		   transport_rc = TransportRc::server_error;
+#endif
     		   break;
     	   }
     }
@@ -198,22 +223,27 @@ bool CAN2Agent::send_message(
     	{
     	
     		printf("something went wrong on socket write, error code : %d \n", int32_t(can_status));
+#ifdef SW_UXR_AGENT_ON
     		transport_rc = TransportRc::server_error;
+#endif
     	}
     	else
     	{
     		rv = true;
+
+#ifdef SW_UXR_AGENT_ON
     		UXR_AGENT_LOG_MESSAGE(
-   				UXR_DECORATE_YELLOW("[** <<CAN2>> **]"),
+   				UXR_DECORATE_YELLOW("[** <<CAN2 send_message()>> **]"),
 				can_msg.id,
 				can_msg.data,
 				can_msg.len);
-
+#endif
     		printf("Message was written to the socket \n");
 
    		}
     }
-#endif
+
+    printf("CAN2Agent::send_message() exited \n");
     return rv;
 }
 

@@ -1,8 +1,12 @@
 #include "../../../../include/uxr/agent/transport/can/socketcan_cpp.hpp"
 //#include "../include/socketcan_cpp/socketcan_cpp.hpp"
 #include <stdio.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <boost/thread/thread.hpp>
+#include <chrono>
+#include <thread>
 
 #ifdef HAVE_SOCKETCAN_HEADERS
 #include <stdio.h>
@@ -14,7 +18,13 @@
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 
+#include <net/if.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+
+#include <linux/can.h>
 #include <linux/can/raw.h>
+#include <linux/can/error.h>
 /* CAN DLC to real data length conversion helpers */
 static const unsigned char dlc2len[] = {0, 1, 2, 3, 4, 5, 6, 7,
 					8, 12, 16, 20, 24, 32, 48, 64};
@@ -51,7 +61,8 @@ namespace eprosima {
 namespace uxr {
 
 SocketCan::SocketCan()
-{}
+{
+}
 
 SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_timeout_ms, SocketMode mode)
 {
@@ -70,9 +81,10 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
         }
 
 
-        //int enable_canfd = 1; //Lim for time being not supporting CAN_FD
+        int mtu, enable_canfd = 1; //Lim for time being not supporting CAN_FD
 
         struct ifreq ifr;
+
 
         strncpy(ifr.ifr_name, can_interface.c_str(), IFNAMSIZ - 1);
         ifr.ifr_name[IFNAMSIZ - 1] = '\0';
@@ -91,25 +103,51 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
             return STATUS_INTERFACE_NAME_TO_IDX_ERROR;
         }
 
-        /*
-         * retrieve the interface index for the interface name (can0, can1, vcan0 etc) we wish to use.
-         */
+        /* Check if it is required to set as FD CAN */
+        if (mode == MODE_CANFD_MTU)
+        {
+        	/*
+        	 * retrieve the interface index for the interface name (can0, can1, vcan0 etc) we wish to use.
+        	 */
 
-        if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) {
-            perror("SIOCGIFINDEX");
-            return STATUS_CAN_OP_ERROR;
+        	if (ioctl(s, SIOCGIFINDEX, &ifr) < 0) {
+        		perror("SIOCGIFINDEX");
+        		return STATUS_CAN_OP_ERROR;
+        	}
+
+        	 mtu = ifr.ifr_mtu;
+
+        	if (mtu != CANFD_MTU) {
+
+        		printf("CAN Classic  mode");
+        		return STATUS_CANFD_NOT_SUPPORTED;
+        	}
+
+        	printf("CD CAN mode");
+        	/* By default it is CAN classic.
+        	 *interface is ok - try to switch the socket into CAN FD mode
+        	 */
+
+        	if (setsockopt(s, SOL_CAN_RAW, CAN_RAW_FD_FRAMES,
+        	           &enable_canfd, sizeof(enable_canfd)))
+        	{
+
+        	        return STATUS_ENABLE_FD_SUPPORT_ERROR;
+        	}
+
+
         }
 
-        /*
-        	const int timestamping_flags = (SOF_TIMESTAMPING_SOFTWARE | \
-            	SOF_TIMESTAMPING_RX_SOFTWARE | \
-            	SOF_TIMESTAMPING_RAW_HARDWARE);
+        	/*
+        		const int timestamping_flags = (SOF_TIMESTAMPING_SOFTWARE | \
+            		SOF_TIMESTAMPING_RX_SOFTWARE | \
+            		SOF_TIMESTAMPING_RAW_HARDWARE);
 
-        	if (setsockopt(m_socket, SOL_SOCKET, SO_TIMESTAMPING,
-            	&timestamping_flags, sizeof(timestamping_flags)) < 0) {
-            	perror("setsockopt SO_TIMESTAMPING is not supported by your Linux kernel");
-        }
-        */
+        		if (setsockopt(m_socket, SOL_SOCKET, SO_TIMESTAMPING,
+            		&timestamping_flags, sizeof(timestamping_flags)) < 0) {
+            		perror("setsockopt SO_TIMESTAMPING is not supported by your Linux kernel");
+        		}
+        	 */
 
         /*
          * The owner - disable default receive filter on this RAW socket
@@ -139,13 +177,27 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
         rfilter[1].can_id   = 0x120; 	//x120-x123
         rfilter[1].can_mask = 0x1FC;  	//001-1111-1100 eg, 0x120-0x123
 #else
-        /* accept all frames */
+        /* filter incoming frames */
         struct can_filter rfilter[1];
         rfilter[0].can_id   = CAN_SFF_MASK;
-        rfilter[0].can_mask = 0x0;   	// can_mask = 0, all frames pass through
+        rfilter[0].can_mask = 0x123;   	// can_mask = 0, all frames pass through
 #endif
         setsockopt(s, SOL_CAN_RAW, CAN_RAW_FILTER, &rfilter, sizeof(rfilter));
 
+#if 0
+        struct timeval timeout;
+
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 1000; //m_read_timeout_ms *1000;
+
+       // timeout.tv_usec = m_read_timeout_ms * 10;  // Not init'ing this can cause strange errors
+       // if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO|SO_SNDTIMEO, (const char*)&timeout,sizeof(struct timeval)) < 0) {
+        if(setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout,sizeof(timeout)) < 0) {
+        	perror("Setting timeout failed");
+        	return STATUS_SOCKET_CREATE_ERROR;
+        }
+        printf("\nSocketCAN init Timeout %d succeeded\n",timeout.tv_usec);
+#endif
 
 // LINUX
         struct sockaddr_can addr;
@@ -160,6 +212,25 @@ SocketCanStatus SocketCan::open(const std::string & can_interface, int32_t read_
             return STATUS_BIND_ERROR;
         }
 
+        printf("SocketCAN  bind() succeeded\n");
+
+        int error = 0;
+        socklen_t len = sizeof (error);
+        int retval = getsockopt (s, SOL_SOCKET, SO_ERROR, &error, &len);
+        if (retval != 0) {
+            /* there was a problem getting the error code */
+            printf("Error getting socket error code: %s\n", strerror(retval));
+            perror("Setting timeout failed");
+            return STATUS_SOCKET_CREATE_ERROR;
+        }
+        printf("SocketCAN  getsockopt() succeeded\n");
+
+        if (error != 0) {
+           /* socket has a non zero error status */
+        	printf("Socket error: %s\n", strerror(error));
+            return STATUS_SOCKET_CREATE_ERROR;
+        }
+        printf("SocketCAN  error none\n");
         sprintf(buf,"%s \n", ifr.ifr_name);
         printf("SocketCAN for interface %s succeeded\n",buf);
 
@@ -181,6 +252,7 @@ SocketCanStatus SocketCan::write(const CanFrame & msg)
 {
 
 		char buf[100];
+		int i=0;
         struct can_frame frame;
         memset(&frame, 0, sizeof(frame)); /* init CAN FD frame, e.g. LEN = 0 */
         //convert CanFrame to canfd_frame
@@ -200,6 +272,17 @@ SocketCanStatus SocketCan::write(const CanFrame & msg)
          */
         memcpy(frame.data, msg.data, msg.len);
 
+
+        sprintf(buf,"%s \n", msg.data);
+        printf("SocketCAN: write() frame.can_dlc= %d, frame.can_id = %d\n", frame.can_dlc,frame.can_id);
+        for (i=0; i< frame.can_dlc; i++)
+        {
+        	printf("data[%d]", buf[i]);
+        }
+
+        printf("\nSocketCAN: Write() ended\n");
+
+
         m_socket_mode = MODE_CAN_MTU;
 
         /* send frame */
@@ -218,15 +301,91 @@ SocketCanStatus SocketCan::write(const CanFrame & msg)
 SocketCanStatus SocketCan::read(CanFrame & msg)
 {
 
-        struct can_frame frame;
+	   // struct canfd_frame frame;
+        struct can_frame frame;  //include/linux/can.h
         char buf[100];
+        int i= 0;
+        unsigned int microseconds;
 
+        int error = 0;
+        socklen_t len = sizeof (error);
+        int retval = getsockopt (s, SOL_SOCKET, SO_ERROR, &error, &len);
+        if (retval != 0)
+        {
+        	/* there was a problem getting the error code */
+            printf("Error getting socket error code: %s\n", strerror(retval));
+            return STATUS_SOCKET_CREATE_ERROR;
+        }
+        printf("SocketCAN::read  getsockopt() succeeded len = %d\n", len);
+
+        printf("SocketCAN:: Read() - About to read from CAN interface can0\n");
         // Read in a CAN frame
-        auto num_bytes = ::read(s, &frame, int(sizeof(struct can_frame)));
+
+     //   memset(&frame, 0, sizeof(struct can_frame));
+
+
+       // struct canfd_frame cfd;
+        auto num_bytes = 0;
+        while(1) {
+        	can_err_mask_t err_mask = ( CAN_ERR_TX_TIMEOUT | CAN_ERR_BUSOFF );
+        	setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER, &err_mask, sizeof(err_mask));
+
+
+        	auto num_bytes = ::read(s, &frame, int(sizeof(struct can_frame)));
+
+        	if (num_bytes == 0) {
+                printf("Read() returns values = %d and data length of %d\n", num_bytes, frame.can_dlc);
+                /* cfd.flags is undefined */
+        	}
+        	else if (num_bytes < 8)
+        	{
+        		printf("ead() returns values = %d and data length of %d\n", num_bytes, frame.can_dlc);
+        	}
+        	else if (num_bytes > 16)
+        	{
+        		printf("Read() returns values = %d and data length of %d\n", num_bytes, frame.can_dlc);
+                fprintf(stderr, "read: invalid CAN frame\n");
+                return STATUS_READ_ERROR;
+        	}
+            else
+            {
+            	printf("Read() returns values = %d and data length of %d\n", num_bytes, frame.can_dlc);
+            	break;
+            }
+
+        	//waits 2 seconds
+        	std::this_thread::sleep_for(std::chrono::seconds(1));
+        	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+        }
+
+    //    printf("SocketCAN:: Read() - read from CAN interface can0 completed with num_bytes %d\n", num_bytes);
         if (num_bytes < 0 ) 	//  old implementation (num_bytes != CAN_MTU && num_bytes != CANFD_MTU)
         {
             perror("CAN2 read error");
             return STATUS_READ_ERROR;
+        }
+
+        /* paranoid check ...
+        if (num_bytes < sizeof(struct can_frame)) {
+            fprintf(stderr, "read: incomplete CAN frame\n");
+            return STATUS_READ_ERROR;
+        }
+        */
+
+
+        if (frame.can_id & CAN_EFF_FLAG) {
+        	printf("SocketCAN: Read() Extended frame.flags = %d \n", frame.can_id);
+        }
+        else {
+        	printf("SocketCAN: Read() Classis frame.flags = %d \n", frame.can_id);
+        }
+
+        if (frame.can_id & CAN_ERR_FLAG) {
+               	printf("SocketCAN: Read() Error frame.flags = %d \n", frame.can_id);
+        }
+        else {
+               	printf("SocketCAN: Read() Non-Error frame.flags = %d \n", frame.can_id);
         }
 
         msg.id = frame.can_id;
@@ -234,8 +393,14 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
         //msg.flags = frame.flags;
         memcpy(msg.data, frame.data, frame.can_dlc);
 
-        sprintf(buf,"%s \n", msg.data);
-        printf("SocketCAN: Read() %s \n",buf);
+        //sprintf(buf,"%s \n", msg.data);
+        printf("SocketCAN: Read() frame.can_dlc= %d, frame.can_id = %d\n", frame.can_dlc,frame.can_id);
+        for (i=0; i< frame.can_dlc; i++)
+        {
+        	printf("data[%d]", msg.data[i]);
+        }
+
+        printf("\nSocketCAN: Read() ended\n");
 
         return STATUS_OK;
 }

@@ -24,12 +24,12 @@ public:
 	CAN2EndPoint() = default;
 
 	CAN2EndPoint(
-            uint16_t id,
+            uint32_t id,
             uint8_t len
 			)
         : id_(id)
         , len_(len)
-		, buf_{0}
+		, buf_({0})
     {}
 
     ~CAN2EndPoint() = default;
@@ -47,9 +47,9 @@ public:
     }
     
  
-    uint16_t get_id() const { return id_; }
+    uint32_t get_id() const { return id_; }
     
-    void set_id(uint16_t can_id) {
+    void set_id(uint32_t can_id) {
     	id_ = 0x0FFF & can_id;
     }
     
@@ -66,17 +66,27 @@ public:
     	return len_; 
     }
     
-    uint8_t set_data(uint8_t *in_data, uint8_t len) {	
-    	len_ = len;
-    	memcpy(buf_, in_data, len_);		// len = port & 0x0007
+    uint8_t set_data(uint8_t *in_data, uint8_t len) {
+
+    	if ( len > 8)
+    	{
+    		printf (" frame data length exceeds 8, input length is %d\n", len);
+    		return 0;
+    	}
+    	else {
+    		len_ = len;
+    		printf ("set_data()- len %d\n", len);
+    		memcpy(buf_, in_data, len_);
+    		printf ("set_data()- ended\n");
+    	}
     	return len_;
     }
     
 
 private:
-    uint16_t id_;
+    uint32_t id_;
     uint8_t len_;
-    uint8_t buf_[8];
+    uint8_t buf_[64];
     
 };
 

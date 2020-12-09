@@ -314,7 +314,7 @@ private:
 
     //	server_.reset(new eprosima::uxr::CANAgent(dev, common_opts_.middleware_opt_.get_kind()));
    // 	CAN2Agent(uint16_t id,const char * dev,uint8_t len, Middleware::Kind middleware_kind)
-        server_.reset(new eprosima::uxr::CAN2Agent(id_, dev_, common_opts_.middleware_opt_.get_kind()));
+        server_.reset(new eprosima::uxr::CAN2Agent(dev_, common_opts_.middleware_opt_.get_kind()));
 
         if (server_->start())
         {
