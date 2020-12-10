@@ -16,8 +16,38 @@
 #endif
 
 
+/*
+ * For reference only
+ * Struct can_frame:
+ *
+ *	canid_t 	can_id
+ *		32 bit CAN_ID + EFF/RTR/ERR flags
+ *
+ *	uint8_t 	can_dlc
+ *		frame payload length in byte (0 . More...
+ *
+ *	uint8_t 	__pad
+ *		padding
+ *
+ *	uint8_t 	__res0
+ *		reserved / padding
+ *
+ *	uint8_t 	__res1
+ *		reserved / padding
+ *
+ *	uint8_t 	data [CAN_MAX_DLEN]
+ *		Frame data.
+ *		CAN_MAX_DLEN = 8
+ *
+ */
+
 namespace eprosima {
 namespace uxr {
+
+/* linux/can.h
+ * #define CAN_MTU   (sizeof(struct can_frame))   == 16  => 'legacy' CAN frame
+ * #define CANFD_MTU (sizeof(struct canfd_frame)) == 72  => CAN FD frame
+ */
 
 enum SocketMode
 {
@@ -60,23 +90,13 @@ class SocketCan
          SocketCanStatus close();
          const std::string & interfaceName() const;
          ~SocketCan();
-        /*
-         *
-        SOCKETCAN_CPP_EXPORT SocketCan();
-        SOCKETCAN_CPP_EXPORT SocketCan(const SocketCan &) = delete;
-        SOCKETCAN_CPP_EXPORT SocketCan & operator=(const SocketCan &) = delete;
-        SOCKETCAN_CPP_EXPORT SocketCanStatus open(const std::string & can_interface, int32_t read_timeout_ms = 3, SocketMode mode = MODE_CAN_MTU);
-        SOCKETCAN_CPP_EXPORT SocketCanStatus write(const CanFrame & msg);
-        SOCKETCAN_CPP_EXPORT SocketCanStatus read(CanFrame & msg);
-        SOCKETCAN_CPP_EXPORT SocketCanStatus close();
-        SOCKETCAN_CPP_EXPORT const std::string & interfaceName() const;
-        SOCKETCAN_CPP_EXPORT ~SocketCan();
-         */
+
     private:
         int s = -1;
         int32_t m_read_timeout_ms = 3;
         std::string m_interface;
         SocketMode m_socket_mode;
+        struct can_frame cframe;
     };
 
 } // namespace uxr
