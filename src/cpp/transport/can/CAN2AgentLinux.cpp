@@ -153,6 +153,24 @@ bool CAN2Agent::recv_message(
     }
     else
     {
+
+    	memset(buffer_, 0, CAN2ENDPOINT_BUFFER_SIZE);
+    	memcpy(buffer_, can_msg.data, can_msg.len);		//only frame's payload
+
+    	input_packet.message.reset(new InputMessage(buffer_, can_msg.len));
+    	input_packet.source = CAN2EndPoint(can_msg.id, can_msg.len);
+    	rv = true;
+
+
+
+    	uint32_t raw_client_key = 0u;
+    	Server<CAN2EndPoint>::get_client_key(input_packet.source, raw_client_key);
+    	UXR_AGENT_LOG_MESSAGE(
+    			UXR_DECORATE_YELLOW("[==>> CAN2 <<==]"),
+    	        raw_client_key,
+    	        input_packet.message->get_buf(),
+    	        input_packet.message->get_len());
+
     	printf("len %d byte, id: %d ", can_msg.len, can_msg.id);
     	for (i=0; i < can_msg.len; i++)
     	{
@@ -162,22 +180,13 @@ bool CAN2Agent::recv_message(
     	printf("\n");
 
     	printf("write frame_id to source of input_packet \n");
-    	input_packet.source.set_id(can_msg.id);
+    //	input_packet.source.set_id(can_msg.id);
 
     	printf("write frame_len to source of input_packet \n");
-    	input_packet.source.set_len(can_msg.len);
+    //	input_packet.source.set_len(can_msg.len);
 
     	printf("write frame_data to source of input_packet \n");
     	input_packet.source.set_data(can_msg.data, can_msg.len);
-
-      	rv = true;
-#ifdef SW_UXR_AGENT_ON
-       	UXR_AGENT_LOG_MESSAGE(
-      			UXR_DECORATE_YELLOW("[** <<CAN2 recv_message()>> **]"),
-    			can_msg.id,
-				can_msg.data,
-				can_msg.len);
-#endif
      }
 
 
@@ -192,52 +201,44 @@ bool CAN2Agent::send_message(
     bool rv = false;
     SocketCanStatus can_status = STATUS_CAN_OP_ERROR;
     struct CanFrame can_msg;
-    uint8_t count =0;
+    uint8_t data_size = 0;
+    int i = 0;
 
     printf("CAN2Agent::send_message() entered \n");
 
     can_msg.id = output_packet.destination.get_id();
-    can_msg.len = output_packet.destination.get_len();
-    
-    while (output_packet.destination.get_data(can_msg.data) != can_msg.len )
-    {
-    	   printf("output_packet length and read data length mismatche\n");
-    	   
-    	   
-    	   if (count++ > 8)
-    	   {
-    		   printf("output packet reading exceeded %d times \n", count);
-#ifdef SW_UXR_AGENT_ON
-    		   transport_rc = TransportRc::server_error;
-#endif
-    		   break;
-    	   }
-    }
-    
+    printf("CAN2Agent::send_message() copied id %d", can_msg.id);
 
-    if (count <= 8)
+    can_msg.len = output_packet.destination.get_len();
+    printf("CAN2Agent::send_message() copied len %d", can_msg.len);
+
+    data_size = output_packet.destination.get_data(can_msg.data);
+
+    if ( data_size != can_msg.len )
     {
-    	printf("output packet reading count %d \n", count);
-    		
+    	   printf("output_packet length and read data length mis-matchex\n");
+    	   printf("can2 data length is %d but the number bytes read are %d \n",can_msg.len, data_size);
+
+    	   transport_rc = TransportRc::server_error;
+    }
+    else
+    {
     	if (STATUS_OK != (can_status = socket_can_.write(can_msg)))
     	{
-    	
     		printf("something went wrong on socket write, error code : %d \n", int32_t(can_status));
-#ifdef SW_UXR_AGENT_ON
     		transport_rc = TransportRc::server_error;
-#endif
     	}
     	else
     	{
     		rv = true;
-
-#ifdef SW_UXR_AGENT_ON
+    		uint32_t raw_client_key = 0u;
+    		Server<CAN2EndPoint>::get_client_key(output_packet.destination, raw_client_key);
     		UXR_AGENT_LOG_MESSAGE(
-   				UXR_DECORATE_YELLOW("[** <<CAN2 send_message()>> **]"),
-				can_msg.id,
-				can_msg.data,
-				can_msg.len);
-#endif
+    				UXR_DECORATE_YELLOW("[** CAN2 send_message()**]"),
+    		        raw_client_key,
+    		        output_packet.message->get_buf(),
+    		        output_packet.message->get_len());
+
     		printf("Message was written to the socket \n");
 
    		}

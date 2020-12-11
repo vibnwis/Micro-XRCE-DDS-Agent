@@ -8,7 +8,7 @@
 #ifndef INCLUDE_UXR_AGENT_TRANSPORT_ENDPOINT_CAN2ENDPOINT_HPP_
 #define INCLUDE_UXR_AGENT_TRANSPORT_ENDPOINT_CAN2ENDPOINT_HPP_
 
-
+#define CAN2ENDPOINT_BUFFER_SIZE	 64
 
 #include <uxr/agent/transport/endpoint/EndPoint.hpp>
 
@@ -29,7 +29,7 @@ public:
 			)
         : id_(id)
         , len_(len)
-		, buf_({0})
+//		, buf_({0})
     {}
 
     ~CAN2EndPoint() = default;
@@ -86,7 +86,7 @@ public:
 private:
     uint32_t id_;
     uint8_t len_;
-    uint8_t buf_[64];
+    uint8_t buf_[CAN2ENDPOINT_BUFFER_SIZE];
     
 };
 

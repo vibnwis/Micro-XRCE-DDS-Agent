@@ -336,7 +336,7 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
 
      //   p_frame = (struct can_frame *)malloc(sizeof(struct can_frame));
 
-        if(!sizeof(cframe))
+        if(CAN_MTU != sizeof(cframe))
         {
         	printf("SocketCAN:: read() frame size error\n");
         	return STATUS_READ_ERROR;
@@ -346,32 +346,33 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
        // struct canfd_frame cfd;
         //auto num_bytes = 0;
         int num_bytes = 0;
-        	can_err_mask_t err_mask = ( CAN_ERR_TX_TIMEOUT | CAN_ERR_BUSOFF );
-        	setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER, &err_mask, sizeof(err_mask));
+        can_err_mask_t err_mask = ( CAN_ERR_TX_TIMEOUT | CAN_ERR_BUSOFF );
+        setsockopt(s, SOL_CAN_RAW, CAN_RAW_ERR_FILTER, &err_mask, sizeof(err_mask));
 
 
-        	num_bytes = ::read(s, &cframe, int(sizeof(struct can_frame)));
+        num_bytes = ::read(s, &cframe, CAN_MTU);
         	//num_bytes = ::read(s, &frame, int(sizeof(struct can_frame)));
 
-        	if (num_bytes == 0) {
+        if (num_bytes == 0)
+        {
                 printf("Read() returns values = %d and data length of %d\n", num_bytes, cframe.can_dlc);
                 /* cfd.flags is undefined */
-        	}
-        	else if (num_bytes < 8)
-        	{
+        }
+        else if (num_bytes < 8)
+        {
         		printf("ead() returns values = %d and data length of %d\n", num_bytes, cframe.can_dlc);
-        	}
-        	else if (num_bytes > 16)
-        	{
+        }
+        else if (num_bytes > 16)
+        {
         		printf("Read() returns values = %d and data length of %d\n", num_bytes, cframe.can_dlc);
                 fprintf(stderr, "read: invalid CAN frame\n");
                 return STATUS_READ_ERROR;
-        	}
-            else
-            {
+        }
+        else
+        {
             	printf("Read() returns values = %d and data length of %d\n", num_bytes, cframe.can_dlc);
         //    	break;
-            }
+        }
 
         	//waits 2 seconds
         //	std::this_thread::sleep_for(std::chrono::seconds(1));
@@ -426,6 +427,7 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
 
         return STATUS_OK;
 }
+
 
 SocketCanStatus SocketCan::close()
 {
