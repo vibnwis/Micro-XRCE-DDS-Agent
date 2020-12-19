@@ -342,7 +342,7 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
         	return STATUS_READ_ERROR;
         }
 
-        printf("SocketCAN:: Read() - A Frame memory space is ready and about to read from CAN interface can0\n");
+        printf("SocketCAN:: Read() - A Frame memory space is ready and about to read from CAN interface can0\n"); // @suppress("Function cannot be resolved")
        // struct canfd_frame cfd;
         //auto num_bytes = 0;
         int num_bytes = 0;

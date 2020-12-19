@@ -58,9 +58,9 @@ enum SocketMode
 struct CanFrame
 {
         uint32_t id = 0;
-        uint8_t len = 0;
+        uint32_t len = 0;
         uint8_t flags = 0;
-        uint8_t data[64];
+        uint8_t data[2048];
 
 };
 

@@ -8,7 +8,8 @@
 #ifndef INCLUDE_UXR_AGENT_TRANSPORT_ENDPOINT_CAN2ENDPOINT_HPP_
 #define INCLUDE_UXR_AGENT_TRANSPORT_ENDPOINT_CAN2ENDPOINT_HPP_
 
-#define CAN2ENDPOINT_BUFFER_SIZE	 64
+#define CAN2ENDPOINT_BUFFER_SIZE	 2048
+#define CAN_MAX_DATA_SIZE			 8
 
 #include <uxr/agent/transport/endpoint/EndPoint.hpp>
 
@@ -25,7 +26,7 @@ public:
 
 	CAN2EndPoint(
             uint32_t id,
-            uint8_t len
+            uint32_t len
 			)
         : id_(id)
         , len_(len)
@@ -53,22 +54,22 @@ public:
     	id_ = 0x0FFF & can_id;
     }
     
-    void set_len(uint8_t len){
+    void set_len(uint32_t len){
         	len_ = len;
     }
     
-    uint8_t get_len() const{
+    uint32_t get_len() const{
            return len_;
     }
     
-    uint8_t get_data(uint8_t *in_data) { 
+    uint32_t get_data(uint8_t *in_data) {
     	memcpy(in_data, buf_, len_);		// len = port & 0x0007
     	return len_; 
     }
     
-    uint8_t set_data(uint8_t *in_data, uint8_t len) {
+    uint32_t set_data(uint8_t *in_data, uint32_t len) {
 
-    	if ( len > 8)
+    	if ( len > CAN2ENDPOINT_BUFFER_SIZE)
     	{
     		printf (" frame data length exceeds 8, input length is %d\n", len);
     		return 0;
@@ -85,7 +86,7 @@ public:
 
 private:
     uint32_t id_;
-    uint8_t len_;
+    uint32_t len_;
     uint8_t buf_[CAN2ENDPOINT_BUFFER_SIZE];
     
 };

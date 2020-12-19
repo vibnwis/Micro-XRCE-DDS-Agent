@@ -50,6 +50,7 @@ CAN2Agent::CAN2Agent(
     , poll_fd_{-1, 0, 0}
     , buffer_{0}
     , dev_{dev}
+    , can2_messages {0}
 {}
 
 
@@ -75,9 +76,13 @@ bool CAN2Agent::init()
     //SocketCan socket_can;
     int32_t read_timeout_ms = 1000;
     int ret_val = 0;
+
+
     // 1000ms
     //poll_fd_.fd = socket_can.open("can0"); 	// != scpp::STATUS_OK)
     ret_val = socket_can_.open(dev_,read_timeout_ms, MODE_CAN_MTU); 	// != scpp::STATUS_OK)
+
+    initCAN2Message();
 
     poll_fd_.fd = ret_val;
     if (-1 != ret_val)					// STATUS_OP_FAILED = -1
@@ -136,12 +141,19 @@ bool CAN2Agent::recv_message(
         TransportRc& transport_rc)
 {
     bool rv = false;
-    SocketCanStatus can_status = STATUS_CAN_OP_ERROR;
+ //   SocketCanStatus can_status = STATUS_CAN_OP_ERROR;
     struct CanFrame can_msg;
-    int i = 0;
+    uint32_t i = 0;
+    uint32_t id, length, msg_len = 0;
+    uint8_t fr_num = 0;
+    uint8_t arr[2048];
+
     printf("CAN2Agent::recv_message() entered \n");
 
-    memset(&can_msg, 0, sizeof(struct CanFrame));
+    memset(&can_msg.data, 0, CAN2ENDPOINT_BUFFER_SIZE);
+    can_msg.id = 0;
+    can_msg.len = 0;
+    can_msg.flags = 0;
 
     if (socket_can_.read(can_msg) != STATUS_OK)
     {
@@ -154,39 +166,69 @@ bool CAN2Agent::recv_message(
     else
     {
 
-    	memset(buffer_, 0, CAN2ENDPOINT_BUFFER_SIZE);
-    	memcpy(buffer_, can_msg.data, can_msg.len);		//only frame's payload
+    	// ----
+    	if (0 < can_msg.len)   // a CAN frame is obtained
+    	    {
+    	    	fr_num = can_msg.data[0];
+    	    	length = can_msg.len;
+    	    	id = can_msg.id;
+    	    	memcpy(arr, can_msg.data, length);
 
-    	input_packet.message.reset(new InputMessage(buffer_, can_msg.len));
-    	input_packet.source = CAN2EndPoint(can_msg.id, can_msg.len);
-    	rv = true;
+    	    	printf ("\n\r inFrame id=0x%x, fr_num=%d  length=%d\n\r", id, fr_num, length);
+    	    	msg_len = processInFrame(id, arr, fr_num, length);
+
+    	    	printf ("\n\r msg_len %d \n\r", msg_len);
+    	    	if (msg_len) {
+    	        	printf ("\n\r< CAN2 concatenated frames \n\r");
+    	        	for (i=0; i<msg_len; i++) {
+    	        		if (!(i%8))
+    	        		    printf ("\n\r");
+    	        		printf("[%d]=0x%x ", i, arr[i]);
+    	        	}
+    	        	printf ("\n\rCAN2 concatenated frames > \n\r");
+
+    	        	memset(buffer_, 0, msg_len);  		//clear first
+    	            memcpy(buffer_, arr, msg_len);		//only frame's payload
+
+    	            resetIDMessage(id);
+
+    	            input_packet.message.reset(new InputMessage(buffer_, msg_len));
+    	            input_packet.source = CAN2EndPoint(id, msg_len);
+    	            input_packet.source.set_data(arr, msg_len);
+
+    	            uint32_t raw_client_key = 0u;
+    	            Server<CAN2EndPoint>::get_client_key(input_packet.source, raw_client_key);
+    	            UXR_AGENT_LOG_MESSAGE(
+    	            	UXR_DECORATE_YELLOW("[==>> uAgent CAN2 <<==]"),
+    	            	raw_client_key,
+    	            	input_packet.message->get_buf(),
+    	            	input_packet.message->get_len());
+
+    	            printf("len %d byte, id: 0x%x \n", msg_len, id);
+    	            for (i=0; i < msg_len; i++)
+   	            	{
+    	            	printf("data[%d]: %02x ", i, arr[i]);
+   	            	}
+
+   	            	printf("\n");
+
+   	            	printf("write frame_id 0x%x to source of input_packet \n", id);
+    	            //	input_packet.source.set_id(can_msg.id);
+
+   	            	printf("write message_len %d to source of input_packet \n", msg_len);
+    	            //	input_packet.source.set_len(can_msg.len);
+
+   	            //	printf("write frame_data to source of input_packet \n");
+
+    	        	rv = true;
+
+    	        }
+    	    }
+    	//---
 
 
 
-    	uint32_t raw_client_key = 0u;
-    	Server<CAN2EndPoint>::get_client_key(input_packet.source, raw_client_key);
-    	UXR_AGENT_LOG_MESSAGE(
-    			UXR_DECORATE_YELLOW("[==>> CAN2 <<==]"),
-    	        raw_client_key,
-    	        input_packet.message->get_buf(),
-    	        input_packet.message->get_len());
 
-    	printf("len %d byte, id: %d ", can_msg.len, can_msg.id);
-    	for (i=0; i < can_msg.len; i++)
-    	{
-    		printf("data[%d]: %02x ", i, can_msg.data[i]);
-    	}
-
-    	printf("\n");
-
-    	printf("write frame_id to source of input_packet \n");
-    //	input_packet.source.set_id(can_msg.id);
-
-    	printf("write frame_len to source of input_packet \n");
-    //	input_packet.source.set_len(can_msg.len);
-
-    	printf("write frame_data to source of input_packet \n");
-    	input_packet.source.set_data(can_msg.data, can_msg.len);
      }
 
 
@@ -201,52 +243,217 @@ bool CAN2Agent::send_message(
     bool rv = false;
     SocketCanStatus can_status = STATUS_CAN_OP_ERROR;
     struct CanFrame can_msg;
-    uint8_t data_size = 0;
-    int i = 0;
+    uint32_t packet_data_size = 0;
+    uint8_t f_num = 0;
+    uint32_t quotient = 0;
+    uint32_t remainder = 0;
+    size_t index = 0;
+    size_t to_write, frame_size;
+    uint8_t fr_data[2048];
+    uint32_t fr_id;
+    uint32_t fr_len;
+    size_t max_frame_data_size = CAN_MAX_DATA_SIZE-1;
 
     printf("CAN2Agent::send_message() entered \n");
 
-    can_msg.id = output_packet.destination.get_id();
-    printf("CAN2Agent::send_message() copied id %d", can_msg.id);
+    fr_id = output_packet.destination.get_id();
+    printf("CAN2Agent::send_message() copied id %d", fr_id);
 
-    can_msg.len = output_packet.destination.get_len();
-    printf("CAN2Agent::send_message() copied len %d", can_msg.len);
+    fr_len = output_packet.destination.get_len();
+    printf("CAN2Agent::send_message() copied len %d", fr_len);
 
-    data_size = output_packet.destination.get_data(can_msg.data);
+    packet_data_size = output_packet.destination.get_data(fr_data);
 
-    if ( data_size != can_msg.len )
+    if ( packet_data_size != fr_len )
     {
     	   printf("output_packet length and read data length mis-matchex\n");
-    	   printf("can2 data length is %d but the number bytes read are %d \n",can_msg.len, data_size);
+    	   printf("can2 data length is %d but the number bytes read are %d \n",fr_len, packet_data_size);
 
     	   transport_rc = TransportRc::server_error;
     }
     else
     {
-    	if (STATUS_OK != (can_status = socket_can_.write(can_msg)))
+    	//---
+
+    	if (fr_len <= 0)
     	{
-    		printf("something went wrong on socket write, error code : %d \n", int32_t(can_status));
+    		printf("output_packet length zero \n");
     		transport_rc = TransportRc::server_error;
+    		return rv;
     	}
-    	else
+
+    	/* calculate number of smaller CAN frames */
+    	if (fr_len <= max_frame_data_size)
     	{
-    		rv = true;
-    		uint32_t raw_client_key = 0u;
-    		Server<CAN2EndPoint>::get_client_key(output_packet.destination, raw_client_key);
-    		UXR_AGENT_LOG_MESSAGE(
-    				UXR_DECORATE_YELLOW("[** CAN2 send_message()**]"),
+    		f_num = 1;
+    	}
+    	else {
+    		quotient = fr_len / max_frame_data_size;
+    		remainder = fr_len % max_frame_data_size;
+
+    		if (!remainder)
+    			f_num = quotient;
+    		else
+    			f_num = quotient + 1;
+    	}
+
+    	while(fr_len > 0){
+
+    		// decide the data length
+    		to_write = (fr_len <= max_frame_data_size) ? fr_len : max_frame_data_size;
+
+    		can_msg.data[0] = --f_num; //stores the frame number in the first byte of a frame can_msg.data[0]
+
+    		memcpy(&can_msg.data[1], &fr_data[index], to_write); // can_msg.data[1..7] store data
+
+    		frame_size = to_write + 1; //however, CAN frame size remain to_write + 1
+    		can_msg.len = frame_size;
+    		can_msg.id = fr_id;
+
+    		fr_len -= to_write;   // deduct to_write from fr_len
+    		index += to_write;    // add to the index
+
+    		if (STATUS_OK != (can_status = socket_can_.write(can_msg)))
+    		{
+    		 	printf("something went wrong on socket write, error code : %d \n", int32_t(can_status));
+    		    transport_rc = TransportRc::server_error;
+    		    break;
+    		 }
+
+    		//sent_status |= STATUS_OK;
+    		if (!f_num)
+			{
+    		 	rv = true;
+    		 	uint32_t raw_client_key = 0u;
+    		 	Server<CAN2EndPoint>::get_client_key(output_packet.destination, raw_client_key);
+    		   		UXR_AGENT_LOG_MESSAGE(
+    		 		UXR_DECORATE_YELLOW("[** CAN2 send_message()**]"),
     		        raw_client_key,
     		        output_packet.message->get_buf(),
-    		        output_packet.message->get_len());
+    		    	output_packet.message->get_len());
 
-    		printf("Message was written to the socket \n");
+    		    printf("Message was written to the socket %d\n", f_num);
 
-   		}
+    		  }
+    	}
     }
 
     printf("CAN2Agent::send_message() exited \n");
     return rv;
 }
+
+// CAN Messaging start
+void CAN2Agent::initCAN2Message(void){
+	int i;
+
+	for (i=0; i<CAN2_MAX_ID_SIZE; i++){
+		memset(&can2_messages[i], 0x0, sizeof(struct CAN2_Messaging_t));
+	}
+}
+
+uint8_t CAN2Agent::isIDRegistered (uint32_t id) {
+	int i;
+	uint8_t idx = 0xFF;
+
+	for (i = 0; i < CAN2_MAX_ID_SIZE; i++) {
+		if (id == can2_messages[i].id) {
+			idx = i;
+			break;
+		}
+	}
+	return idx;
+}
+
+uint8_t CAN2Agent::registerID(uint32_t id, uint8_t *fr, uint8_t fr_num, uint8_t len) {
+	uint8_t i;
+	uint8_t idx = 0xFF;
+
+	idx = isIDRegistered(id);
+	if (idx == 0xFF) { //has not registered
+		for (i = 0; i < CAN2_MAX_ID_SIZE; i++) {
+			if (0x0 == can2_messages[i].id) {
+				can2_messages[i].id = id;
+				can2_messages[i].fr_num = fr_num;
+				can2_messages[i].length = 0;
+				can2_messages[i].index = fr_num;
+				addFrame(fr, len, i);
+				idx = i;
+				break;
+			}
+		}
+	}
+	else {
+		addFrame(fr, len, idx);
+	}
+	return idx;
+}
+
+
+bool CAN2Agent::resetIDMessage(uint32_t id) {
+	bool rv = false;
+	uint8_t idx = 0xFF;
+
+	idx =isIDRegistered(id);
+	if (idx != 0xFF) {
+		memset(&can2_messages[idx], 0x0, sizeof(struct CAN2_Messaging_t));
+		rv = true;
+	}
+	return rv;
+}
+
+bool CAN2Agent::resetIDXMessage(uint8_t idx) {
+	bool rv = false;
+	if (idx != 0xFF) {
+		memset(&can2_messages[idx], 0x0, sizeof(struct CAN2_Messaging_t));
+		rv = true;
+	}
+	return rv;
+}
+
+uint8_t CAN2Agent::addFrame(uint8_t *fr, uint8_t len, uint8_t idx) {
+
+	can2_messages[idx].index--;
+	memcpy(&can2_messages[idx].buf[can2_messages[idx].length], &fr[1] ,len-1);
+	can2_messages[idx].length += len-1;
+
+	return len-1;
+}
+
+size_t CAN2Agent::retrieveFullMesg(uint8_t *msg, uint8_t idx) {
+
+	size_t rv = can2_messages[idx].length;
+	memcpy(msg, &can2_messages[idx].buf[0], can2_messages[idx].length);
+	memset(&can2_messages[idx], 0x0, sizeof(struct CAN2_Messaging_t));
+
+	return rv;
+}
+
+size_t CAN2Agent::IsLastFrame(uint8_t idx, uint8_t *msg, uint8_t fr_num){
+	size_t msg_len = 0;
+
+	if (!fr_num){
+		msg_len = can2_messages[idx].length;
+		memcpy(msg, &can2_messages[idx].buf[0], can2_messages[idx].length);
+		//memset(&can2_messages[idx], 0x0, sizeof(struct CAN2_Messaging_t));
+	}
+
+	return msg_len;
+}
+
+
+uint32_t CAN2Agent::processInFrame(uint32_t id, uint8_t *fr, uint8_t fr_num, uint32_t len) {
+
+	uint8_t idx = 0xFF;
+	uint32_t msg_len = 0;
+
+	idx = registerID(id, fr, fr_num, len);  //fr bring data in
+
+	msg_len = IsLastFrame(idx, fr, fr_num); //fr bring data out
+
+	return msg_len;
+}
+
+// CAN Messaging end
 
 bool CAN2Agent::handle_error(
         TransportRc /*transport_rc*/)
