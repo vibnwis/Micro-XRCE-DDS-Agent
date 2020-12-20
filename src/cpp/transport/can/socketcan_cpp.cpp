@@ -275,15 +275,12 @@ SocketCanStatus SocketCan::write(const CanFrame & msg)
          */
         memcpy(cframe.data, msg.data, msg.len);
 
-
-        sprintf(buf,"%s \n", msg.data);
+        //sprintf(buf,"%s \n", msg.data);
         printf("SocketCAN: write() frame.can_dlc= %d, frame.can_id = %d\n", cframe.can_dlc,cframe.can_id);
         for (i=0; i< cframe.can_dlc; i++)
         {
-        	printf("data[%d]", buf[i]);
+        	printf("data[0x%x] ", (int)cframe.data[i]);
         }
-
-        printf("\nSocketCAN: Write() ended\n");
 
 
         m_socket_mode = MODE_CAN_MTU;
@@ -294,8 +291,8 @@ SocketCanStatus SocketCan::write(const CanFrame & msg)
             return STATUS_WRITE_ERROR;
         }
 
-        sprintf(buf,"%s \n", msg.data);
-        printf("SocketCAN: Write() %s \n",buf);
+       // sprintf(buf,"%s \n", msg.data);
+       // printf("SocketCAN: Write() %s \n",buf);
 
         return STATUS_OK;
 }
@@ -360,7 +357,7 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
         }
         else if (num_bytes < 8)
         {
-        		printf("ead() returns values = %d and data length of %d\n", num_bytes, cframe.can_dlc);
+        		printf("Read() returns values = %d and data length of %d\n", num_bytes, cframe.can_dlc);
         }
         else if (num_bytes > 16)
         {
@@ -418,7 +415,7 @@ SocketCanStatus SocketCan::read(CanFrame & msg)
         printf("SocketCAN: Read() frame.can_dlc= %d, frame.can_id = %d\n", cframe.can_dlc,cframe.can_id);
         for (i=0; i< cframe.can_dlc; i++)
         {
-        	printf("data[%d]", msg.data[i]);
+        	printf("data[%d] ", msg.data[i]);
         }
 
         printf("\nSocketCAN: Read() ended\n");

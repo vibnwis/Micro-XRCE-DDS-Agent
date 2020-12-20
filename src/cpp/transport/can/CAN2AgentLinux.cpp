@@ -207,7 +207,9 @@ bool CAN2Agent::recv_message(
     	            printf("len %d byte, id: 0x%x \n", msg_len, id);
     	            for (i=0; i < msg_len; i++)
    	            	{
-    	            	printf("data[%d]: %02x ", i, arr[i]);
+    	            	printf("data[%d]: 0x%x ", i, (int)arr[i]);
+    	            	if (((i+1) % 8) == 0)
+    	            		printf("\n");
    	            	}
 
    	            	printf("\n");
@@ -320,6 +322,7 @@ bool CAN2Agent::send_message(
     		    break;
     		 }
 
+    		printf("Frame %d was written to the CANSocket.\n", f_num);
     		//sent_status |= STATUS_OK;
     		if (!f_num)
 			{
@@ -331,10 +334,7 @@ bool CAN2Agent::send_message(
     		        raw_client_key,
     		        output_packet.message->get_buf(),
     		    	output_packet.message->get_len());
-
-    		    printf("Message was written to the socket %d\n", f_num);
-
-    		  }
+			}
     	}
     }
 
